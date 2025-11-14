@@ -1,20 +1,10 @@
-import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { Navigate } from "react-router-dom";
 
 const Index = () => {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // Redirect to login or dashboard based on auth status
-    const authenticated = sessionStorage.getItem("authenticated");
-    if (authenticated) {
-      navigate("/dashboard");
-    } else {
-      navigate("/login");
-    }
-  }, [navigate]);
-
-  return null;
+  // Check authentication status and redirect accordingly
+  const authenticated = sessionStorage.getItem("authenticated");
+  
+  return <Navigate to={authenticated ? "/dashboard" : "/login"} replace />;
 };
 
 export default Index;
