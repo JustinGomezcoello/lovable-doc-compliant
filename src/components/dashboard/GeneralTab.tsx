@@ -1,8 +1,8 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import MetricCard from "./MetricCard";
 import { 
-  MessageSquare, 
   FileText, 
   Headphones, 
   UserCheck, 
@@ -10,52 +10,29 @@ import {
   Wrench,
   Search,
   CheckCircle,
-  DollarSign,
-  Send
+  CalendarIcon
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const GeneralTab = () => {
-  // Fetch WhatsApp campaign totals from Supabase
-  const { data: whatsappMetrics, isLoading: loadingWhatsapp } = useQuery({
-    queryKey: ["whatsapp-general"],
-    queryFn: async () => {
-      const tableNames = [
-        "point_mora_1",
-        "point_mora_3",
-        "point_mora_5",
-        "point_compromiso_pago",
-        "point_reactivacion_cobro"
-      ] as const;
-      
-      let totalSent = 0;
-      let totalCost = 0;
-
-      for (const table of tableNames) {
-        const { data, error } = await supabase
-          .from(table)
-          .select("count_day");
-        
-        if (!error && data) {
-          const sent = data.reduce((sum: number, row: any) => sum + (row.count_day || 0), 0);
-          totalSent += sent;
-          totalCost += sent * 0.014;
-        }
-      }
-
-      return {
-        totalSent,
-        totalCost: totalCost.toFixed(2)
-      };
-    }
-  });
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   // Fetch Chatwoot metrics via edge function
   const { data: chatwootMetrics, isLoading: loadingChatwoot } = useQuery({
-    queryKey: ["chatwoot-general"],
+    queryKey: ["chatwoot-general", startDate, endDate],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("chatwoot-metrics", {
-        body: { type: "general" }
+        body: { 
+          type: "general",
+          startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
+          endDate: endDate ? format(endDate, "yyyy-MM-dd") : undefined
+        }
       });
       
       if (error) throw error;
@@ -63,7 +40,7 @@ const GeneralTab = () => {
     }
   });
 
-  if (loadingWhatsapp || loadingChatwoot) {
+  if (loadingChatwoot) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[...Array(10)].map((_, i) => (
@@ -81,18 +58,6 @@ const GeneralTab = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="WhatsApp Enviados"
-          value={whatsappMetrics?.totalSent?.toLocaleString() || "0"}
-          icon={Send}
-          description="Total histórico"
-        />
-        <MetricCard
-          title="Costo Total WhatsApp"
-          value={`$${whatsappMetrics?.totalCost || "0"}`}
-          icon={DollarSign}
-          description="Costo acumulado"
-        />
         <MetricCard
           title="Comprobantes Enviados"
           value={chatwootMetrics?.comprobante_enviado || "0"}

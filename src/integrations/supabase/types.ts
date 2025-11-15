@@ -680,6 +680,156 @@ export type Database = {
         }
         Relationships: []
       }
+      POINT_Competencia_SUPABASE: {
+        Row: {
+          Articulo: string | null
+          Cartera: number
+          Categoria: string | null
+          Cedula: number | null
+          Celular: number | null
+          Cliente: string | null
+          ComprobanteEnviado: string | null
+          Compromiso: string | null
+          compromiso_pago_fecha: string | null
+          Confianza: number | null
+          contact_id: number | null
+          Contesto: string | null
+          conversation_id: number | null
+          Costo: string | null
+          CuotasVencidas: number | null
+          DiasMora: number | null
+          DiceQueYaPago: string | null
+          Equivocado: string | null
+          FechaCompromiso: string | null
+          FechaProximaLlamada: string | null
+          FechaYHora: string | null
+          Genero: string | null
+          GestionHumana: string | null
+          idCompra: number
+          IntentosLLamada: number
+          Llamadas: Json | null
+          LlamarOtraVez: string | null
+          Motivo: string | null
+          Pagado: string | null
+          Plataforma: string | null
+          Prioridad: number
+          Proridad: string | null
+          Razon: string | null
+          RestanteSaldoVencido: number | null
+          Resumen: string | null
+          SaldoPorVencer: number
+          SaldoVencido: number | null
+          Segmento: string | null
+          SentimientoPersona: string | null
+          Status: string
+          TandaDelDia: number
+          "Tiempo De Llamada": string | null
+          TipoDePago: string | null
+          Transcript: string | null
+          UltimaLlamada: string | null
+          "Url Gravacion": string | null
+          WhatsappEnviado: string | null
+        }
+        Insert: {
+          Articulo?: string | null
+          Cartera?: number
+          Categoria?: string | null
+          Cedula?: number | null
+          Celular?: number | null
+          Cliente?: string | null
+          ComprobanteEnviado?: string | null
+          Compromiso?: string | null
+          compromiso_pago_fecha?: string | null
+          Confianza?: number | null
+          contact_id?: number | null
+          Contesto?: string | null
+          conversation_id?: number | null
+          Costo?: string | null
+          CuotasVencidas?: number | null
+          DiasMora?: number | null
+          DiceQueYaPago?: string | null
+          Equivocado?: string | null
+          FechaCompromiso?: string | null
+          FechaProximaLlamada?: string | null
+          FechaYHora?: string | null
+          Genero?: string | null
+          GestionHumana?: string | null
+          idCompra: number
+          IntentosLLamada?: number
+          Llamadas?: Json | null
+          LlamarOtraVez?: string | null
+          Motivo?: string | null
+          Pagado?: string | null
+          Plataforma?: string | null
+          Prioridad?: number
+          Proridad?: string | null
+          Razon?: string | null
+          RestanteSaldoVencido?: number | null
+          Resumen?: string | null
+          SaldoPorVencer?: number
+          SaldoVencido?: number | null
+          Segmento?: string | null
+          SentimientoPersona?: string | null
+          Status?: string
+          TandaDelDia?: number
+          "Tiempo De Llamada"?: string | null
+          TipoDePago?: string | null
+          Transcript?: string | null
+          UltimaLlamada?: string | null
+          "Url Gravacion"?: string | null
+          WhatsappEnviado?: string | null
+        }
+        Update: {
+          Articulo?: string | null
+          Cartera?: number
+          Categoria?: string | null
+          Cedula?: number | null
+          Celular?: number | null
+          Cliente?: string | null
+          ComprobanteEnviado?: string | null
+          Compromiso?: string | null
+          compromiso_pago_fecha?: string | null
+          Confianza?: number | null
+          contact_id?: number | null
+          Contesto?: string | null
+          conversation_id?: number | null
+          Costo?: string | null
+          CuotasVencidas?: number | null
+          DiasMora?: number | null
+          DiceQueYaPago?: string | null
+          Equivocado?: string | null
+          FechaCompromiso?: string | null
+          FechaProximaLlamada?: string | null
+          FechaYHora?: string | null
+          Genero?: string | null
+          GestionHumana?: string | null
+          idCompra?: number
+          IntentosLLamada?: number
+          Llamadas?: Json | null
+          LlamarOtraVez?: string | null
+          Motivo?: string | null
+          Pagado?: string | null
+          Plataforma?: string | null
+          Prioridad?: number
+          Proridad?: string | null
+          Razon?: string | null
+          RestanteSaldoVencido?: number | null
+          Resumen?: string | null
+          SaldoPorVencer?: number
+          SaldoVencido?: number | null
+          Segmento?: string | null
+          SentimientoPersona?: string | null
+          Status?: string
+          TandaDelDia?: number
+          "Tiempo De Llamada"?: string | null
+          TipoDePago?: string | null
+          Transcript?: string | null
+          UltimaLlamada?: string | null
+          "Url Gravacion"?: string | null
+          WhatsappEnviado?: string | null
+        }
+        Relationships: []
+      }
       POINT_Competenciaa: {
         Row: {
           Articulo: string | null
