@@ -12,13 +12,15 @@ import { Send, DollarSign, Users, UserCheck, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DayByDayTab = () => {
-  const [date, setDate] = useState<Date>(new Date());
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date>(new Date());
   const [campaignFilterDate, setCampaignFilterDate] = useState<Date>(new Date());
 
   const { data: dayMetrics, isLoading } = useQuery({
-    queryKey: ["day-metrics", date],
+    queryKey: ["day-metrics", startDate, endDate],
     queryFn: async () => {
-      const dateStr = format(date, "yyyy-MM-dd");
+      const startStr = format(startDate, "yyyy-MM-dd");
+      const endStr = format(endDate, "yyyy-MM-dd");
       
       // Get WhatsApp metrics from Supabase
       const tableNames = [
@@ -36,13 +38,14 @@ const DayByDayTab = () => {
         const { data, error } = await supabase
           .from(table)
           .select("count_day, cedulas, fecha")
-          .eq("fecha", dateStr);
+          .gte("fecha", startStr)
+          .lte("fecha", endStr);
         
         if (!error && data) {
           const sent = data.reduce((sum: number, row: any) => sum + (row.count_day || 0), 0);
           totalSent += sent;
           
-          // Collect all cedulas from this day
+          // Collect all cedulas from this date range
           data.forEach((row: any) => {
             if (row.cedulas && Array.isArray(row.cedulas)) {
               allCedulas = [...allCedulas, ...row.cedulas];
@@ -96,15 +99,25 @@ const DayByDayTab = () => {
       ] as const;
       
       let campaignDetails: any[] = [];
+      let totalSent = 0;
+      let allCedulas: string[] = [];
 
       for (const table of tableNames) {
         const { data, error } = await supabase
           .from(table)
-          .select("count_day, fecha")
+          .select("count_day, cedulas, fecha")
           .eq("fecha", dateStr);
         
         if (!error && data) {
           const sent = data.reduce((sum: number, row: any) => sum + (row.count_day || 0), 0);
+          totalSent += sent;
+          
+          data.forEach((row: any) => {
+            if (row.cedulas && Array.isArray(row.cedulas)) {
+              allCedulas = [...allCedulas, ...row.cedulas];
+            }
+          });
+          
           campaignDetails.push({
             name: table.replace("point_", "").replace(/_/g, " "),
             sent,
@@ -113,7 +126,31 @@ const DayByDayTab = () => {
         }
       }
 
-      return campaignDetails;
+      // Calculate responses for all campaigns combined
+      let responded = 0;
+      if (allCedulas.length > 0) {
+        const cedulasAsNumbers = allCedulas.map(c => parseInt(c)).filter(n => !isNaN(n));
+        
+        if (cedulasAsNumbers.length > 0) {
+          const { data: responseData } = await supabase
+            .from("POINT_Competencia")
+            .select("Cedula, conversation_id")
+            .in("Cedula", cedulasAsNumbers);
+          
+          if (responseData) {
+            responded = responseData.filter(r => r.conversation_id && r.conversation_id > 0).length;
+          }
+        }
+      }
+
+      const notResponded = totalSent - responded;
+
+      return {
+        campaigns: campaignDetails,
+        totalSent,
+        responded,
+        notResponded
+      };
     }
   });
 
@@ -122,26 +159,46 @@ const DayByDayTab = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold mb-2">Métricas por Día</h2>
-          <p className="text-muted-foreground">Analiza el rendimiento diario</p>
+          <p className="text-muted-foreground">Analiza el rendimiento por rango de fechas</p>
         </div>
         
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline">
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {format(date, "PPP")}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={(date) => date && setDate(date)}
-              initialFocus
-              className={cn("p-3 pointer-events-auto")}
-            />
-          </PopoverContent>
-        </Popover>
+        <div className="flex gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {format(startDate, "PPP")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={startDate}
+                onSelect={(date) => date && setStartDate(date)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {format(endDate, "PPP")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={endDate}
+                onSelect={(date) => date && setEndDate(date)}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -149,7 +206,7 @@ const DayByDayTab = () => {
           title="WhatsApp Enviados"
           value={dayMetrics?.totalSent?.toLocaleString() || "0"}
           icon={Send}
-          description={`${format(date, "dd/MM/yyyy")}`}
+          description={`${format(startDate, "dd/MM/yyyy")} - ${format(endDate, "dd/MM/yyyy")}`}
         />
         <MetricCard
           title="Costo del Día"
@@ -199,25 +256,44 @@ const DayByDayTab = () => {
           {loadingCampaigns ? (
             <p className="text-muted-foreground">Cargando...</p>
           ) : (
-            <div className="space-y-4">
-              {campaignDetails?.map((campaign: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
-                  <div className="font-medium capitalize">{campaign.name}</div>
-                  <div className="flex gap-6 text-sm">
-                    <span className="text-muted-foreground">
-                      Enviados: <span className="font-semibold text-foreground">{campaign.sent}</span>
-                    </span>
-                    <span className="text-muted-foreground">
-                      Costo: <span className="font-semibold text-foreground">${campaign.cost}</span>
-                    </span>
-                  </div>
+            <div className="space-y-6">
+              {/* Summary metrics for all campaigns */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Total Enviados</p>
+                  <p className="text-2xl font-bold">{campaignDetails?.totalSent?.toLocaleString() || "0"}</p>
                 </div>
-              ))}
-              {campaignDetails && campaignDetails.length === 0 && (
-                <p className="text-muted-foreground text-center py-8">
-                  No hay datos para esta fecha
-                </p>
-              )}
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Respondieron</p>
+                  <p className="text-2xl font-bold text-green-600">{campaignDetails?.responded?.toLocaleString() || "0"}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-1">No Respondieron</p>
+                  <p className="text-2xl font-bold text-orange-600">{campaignDetails?.notResponded?.toLocaleString() || "0"}</p>
+                </div>
+              </div>
+
+              {/* Campaign breakdown */}
+              <div className="space-y-4">
+                {campaignDetails?.campaigns?.map((campaign: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+                    <div className="font-medium capitalize">{campaign.name}</div>
+                    <div className="flex gap-6 text-sm">
+                      <span className="text-muted-foreground">
+                        Enviados: <span className="font-semibold text-foreground">{campaign.sent}</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        Costo: <span className="font-semibold text-foreground">${campaign.cost}</span>
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {campaignDetails?.campaigns && campaignDetails.campaigns.length === 0 && (
+                  <p className="text-muted-foreground text-center py-8">
+                    No hay datos para esta fecha
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
