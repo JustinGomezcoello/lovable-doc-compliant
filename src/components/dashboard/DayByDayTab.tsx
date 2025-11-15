@@ -12,10 +12,10 @@ import { Send, DollarSign, Users, UserCheck, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DayByDayTab = () => {
-  // Set default dates to 2025-11-14 where data exists
-  const [startDate, setStartDate] = useState<Date>(new Date("2025-11-14"));
-  const [endDate, setEndDate] = useState<Date>(new Date("2025-11-14"));
-  const [campaignFilterDate, setCampaignFilterDate] = useState<Date>(new Date("2025-11-14"));
+  // Set default dates to today
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date>(new Date());
+  const [campaignFilterDate, setCampaignFilterDate] = useState<Date>(new Date());
 
   const { data: dayMetrics, isLoading } = useQuery({
     queryKey: ["day-metrics", startDate, endDate],
