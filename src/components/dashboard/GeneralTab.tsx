@@ -20,18 +20,16 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const GeneralTab = () => {
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   // Fetch Chatwoot metrics via edge function
   const { data: chatwootMetrics, isLoading: loadingChatwoot } = useQuery({
-    queryKey: ["chatwoot-general", startDate, endDate],
+    queryKey: ["chatwoot-general", selectedDate],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("chatwoot-metrics", {
         body: { 
           type: "general",
-          startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
-          endDate: endDate ? format(endDate, "yyyy-MM-dd") : undefined
+          date: selectedDate ? format(selectedDate, "yyyy-MM-dd") : undefined
         }
       });
       
@@ -52,9 +50,29 @@ const GeneralTab = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold mb-2">Métricas Generales</h2>
-        <p className="text-muted-foreground">Vista general de campañas y conversaciones</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold mb-2">Métricas Generales</h2>
+          <p className="text-muted-foreground">Vista general de campañas y conversaciones</p>
+        </div>
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline">
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {selectedDate ? format(selectedDate, "PPP") : "Seleccionar fecha"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => date && setSelectedDate(date)}
+              initialFocus
+              className={cn("p-3 pointer-events-auto")}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
