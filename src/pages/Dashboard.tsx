@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import GeneralTab from "@/components/dashboard/GeneralTab";
 import DayByDayTab from "@/components/dashboard/DayByDayTab";
 import AnalysisTab from "@/components/dashboard/AnalysisTab";
@@ -12,14 +13,25 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("general");
 
   useEffect(() => {
-    const authenticated = sessionStorage.getItem("authenticated");
-    if (!authenticated) {
-      navigate("/login");
-    }
+    // Check authentication with Supabase
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        navigate("/login");
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        navigate("/login");
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("authenticated");
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     navigate("/login");
   };
 
