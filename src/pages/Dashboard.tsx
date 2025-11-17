@@ -6,7 +6,7 @@ import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import GeneralTab from "@/components/dashboard/GeneralTab";
 import DayByDayTab from "@/components/dashboard/DayByDayTab";
-import AnalysisTab from "@/components/dashboard/AnalysisTab";
+import ConversationHistoryTab from "@/components/dashboard/ConversationHistoryTab";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -50,14 +50,12 @@ const Dashboard = () => {
             Cerrar Sesión
           </Button>
         </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-6">
+      </header>      <main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="day-by-day">Día a Día</TabsTrigger>
-            <TabsTrigger value="analysis">Conversaciones</TabsTrigger>
+            <TabsTrigger value="conversations">Ver Conversaciones</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" className="space-y-6">
@@ -68,8 +66,8 @@ const Dashboard = () => {
             <DayByDayTab />
           </TabsContent>
 
-          <TabsContent value="analysis" className="space-y-6">
-            <AnalysisTab />
+          <TabsContent value="conversations" className="space-y-6">
+            <ConversationHistoryTab />
           </TabsContent>
         </Tabs>
       </main>

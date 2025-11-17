@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import MetricCard from "./MetricCard";
 import { Send, DollarSign, Users, UserCheck, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
+import LoadingState from "@/components/ui/loading-state";
 
 const DayByDayTab = () => {
   // Set default dates to today
@@ -210,38 +211,45 @@ const DayByDayTab = () => {
               />
             </PopoverContent>
           </Popover>
-        </div>
-      </div>
+        </div>      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <MetricCard
-          title="WhatsApp Enviados"
-          value={dayMetrics?.totalSent?.toLocaleString() || "0"}
-          icon={Send}
-          description={`${format(startDate, "dd/MM/yyyy")} - ${format(endDate, "dd/MM/yyyy")}`}
+      {isLoading ? (
+        <LoadingState 
+          title="Cargando métricas del día..."
+          message="Obteniendo datos de WhatsApp y calculando estadísticas de respuesta."
+          skeletonCount={5}
         />
-        <MetricCard
-          title="Costo del Día"
-          value={`$${dayMetrics?.totalCost || "0"}`}
-          icon={DollarSign}
-        />
-        <MetricCard
-          title="Respondieron"
-          value={dayMetrics?.responded?.toLocaleString() || "0"}
-          icon={UserCheck}
-          description={`${dayMetrics?.responseRate || "0"}% del total`}
-        />
-        <MetricCard
-          title="No Respondieron"
-          value={dayMetrics?.notResponded?.toLocaleString() || "0"}
-          icon={UserX}
-        />
-        <MetricCard
-          title="Total Contactados"
-          value={dayMetrics?.totalSent?.toLocaleString() || "0"}
-          icon={Users}
-        />
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <MetricCard
+            title="WhatsApp Enviados"
+            value={dayMetrics?.totalSent?.toLocaleString() || "0"}
+            icon={Send}
+            description={`${format(startDate, "dd/MM/yyyy")} - ${format(endDate, "dd/MM/yyyy")}`}
+          />
+          <MetricCard
+            title="Costo del Día"
+            value={`$${dayMetrics?.totalCost || "0"}`}
+            icon={DollarSign}
+          />
+          <MetricCard
+            title="Respondieron"
+            value={dayMetrics?.responded?.toLocaleString() || "0"}
+            icon={UserCheck}
+            description={`${dayMetrics?.responseRate || "0"}% del total`}
+          />
+          <MetricCard
+            title="No Respondieron"
+            value={dayMetrics?.notResponded?.toLocaleString() || "0"}
+            icon={UserX}
+          />
+          <MetricCard
+            title="Total Contactados"
+            value={dayMetrics?.totalSent?.toLocaleString() || "0"}
+            icon={Users}
+          />
+        </div>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -263,10 +271,13 @@ const DayByDayTab = () => {
               />
             </PopoverContent>
           </Popover>
-        </CardHeader>
-        <CardContent>
+        </CardHeader>        <CardContent>
           {loadingCampaigns ? (
-            <p className="text-muted-foreground">Cargando...</p>
+            <LoadingState 
+              title="Cargando campañas..."
+              message="Obteniendo datos de campañas de WhatsApp desde las bases de datos."
+              showSkeletons={false}
+            />
           ) : (
             <div className="space-y-6">
               {/* Summary metrics for all campaigns */}

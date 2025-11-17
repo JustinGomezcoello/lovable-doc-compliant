@@ -4,135 +4,200 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, User, Phone, CreditCard, MessageCircle, Package } from "lucide-react";
+import { Search, User, Phone, CreditCard, MessageCircle, Package, Bot, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
 import LoadingState from "@/components/ui/loading-state";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
-const AnalysisTab = () => {
+interface ConversationRecord {
+  idCompra: number;
+  Cliente: string;
+  Cedula: number;
+  Celular: number;
+  conversation_id: number;
+  Segmento?: string;
+  Status?: string;
+  Articulo?: string;
+  ComprobanteEnviado?: string;
+}
+
+interface ConversationMessage {
+  id: number;
+  conversation_id: number;
+  fecha_iso: string;
+  rol: "BOT" | "CLIENTE" | "DESCONOCIDO" | string;
+  privado: boolean;
+  estado: string;
+  tipo: string;
+  texto: string;
+}
+
+interface ConversationHistory {
+  conversation_id: number;
+  total: number;
+  transcript?: string;
+  mensajes: ConversationMessage[];
+}
+
+const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_CONVERSATION_WEBHOOK_URL || 
+  "https://primary-production-f05b.up.railway.app/webhook/651db7d0-7d3e-42a8-82b0-133c08a78201";
+
+const ConversationHistoryTab = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
-
-  // Query para obtener todos los clientes con conversaciones
-  const { data: allCustomers, isLoading: isLoadingAll } = useQuery({
-    queryKey: ["all-customers-with-conversations"],
+  const [selectedRecord, setSelectedRecord] = useState<ConversationRecord | null>(null);
+  // Consulta para obtener todos los registros con conversation_id válido
+  const { data: allRecords, isLoading: isLoadingAll } = useQuery({
+    queryKey: ["conversation-records"],
     queryFn: async () => {
+      console.log("🔍 Obteniendo registros con conversaciones...");
+      
       const { data, error } = await supabase
         .from("POINT_Competencia")
-        .select("idCompra, Cliente, Cedula, Celular, conversation_id, ComprobanteEnviado, Articulo")
-        .gt("conversation_id", 0)
+        .select(`
+          idCompra,
+          Cliente,
+          Cedula,
+          Celular,
+          conversation_id,
+          Segmento,
+          Status,
+          Articulo,
+          ComprobanteEnviado
+        `)
+        .not("conversation_id", "is", null)
+        .neq("conversation_id", 0)
         .order("Cliente", { ascending: true });
 
       if (error) {
-        console.error("❌ Error loading customers:", error);
+        console.error("❌ Error obteniendo registros:", error);
         return [];
       }
 
-      return data || [];
-    }
+      console.log(`✅ ${data?.length || 0} registros obtenidos`);
+      return data as ConversationRecord[];
+    },
+    retry: 2,
+    staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
   // Query para obtener el detalle del cliente seleccionado y su conversación
   const { data: customerData, isLoading: isLoadingDetail } = useQuery({
-    queryKey: ["customer-detail", selectedCustomer?.idCompra],
+    queryKey: ["customer-conversation-detail", selectedRecord?.idCompra],
     queryFn: async () => {
-      if (!selectedCustomer) return null;
+      if (!selectedRecord) return null;
 
-      console.log("🔍 Loading detail for customer:", selectedCustomer.idCompra);
+      console.log("🔍 Loading conversation detail for record:", selectedRecord.idCompra);
 
-      // Get full customer data
-      const { data: customerDetail, error: customerError } = await supabase
-        .from("POINT_Competencia")
-        .select("*")
-        .eq("idCompra", selectedCustomer.idCompra)
-        .maybeSingle();
-
-      if (customerError) {
-        console.error("❌ Error loading customer detail:", customerError);
-        return null;
-      }
-
-      if (!customerDetail) {
-        console.log("⚠️ No customer detail found");
-        return null;
-      }
-
-      console.log("✅ Customer detail found:", {
-        idCompra: customerDetail.idCompra,
-        Cliente: customerDetail.Cliente,
-        conversation_id: customerDetail.conversation_id
-      });
-
-      // Get conversation history if conversation_id exists
-      let conversations = null;
-      if (customerDetail.conversation_id && customerDetail.conversation_id > 0) {
-        console.log("🔍 Fetching chat history for session_id:", customerDetail.conversation_id);
+      try {
+        console.log(`📞 Llamando webhook n8n para conversation_id: ${selectedRecord.conversation_id}`);
         
-        const { data: chatData, error: chatError } = await supabase
-          .from("n8n_chat_histories")
-          .select("*")
-          .eq("session_id", customerDetail.conversation_id.toString())
-          .order("created_at", { ascending: true });
-        
-        if (chatError) {
-          console.error("❌ Error fetching chat history:", chatError);
-        } else {
-          console.log("✅ Chat messages found:", chatData?.length || 0);
-          conversations = chatData;
+        const response = await fetch(N8N_WEBHOOK_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            conversation_id: selectedRecord.conversation_id
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Error HTTP ${response.status}: ${errorText}`);
         }
-      } else {
-        console.log("⚠️ No conversation_id found or is 0");
-      }
 
-      return { customer: customerDetail, conversations };
+        const data = await response.json();
+        console.log("✅ Respuesta del webhook:", data);
+
+        // El webhook puede devolver un array o un objeto
+        const historyData = Array.isArray(data) ? data[0] : data;
+        
+        if (!historyData || !historyData.mensajes) {
+          throw new Error("Formato de respuesta inválido del webhook");
+        }
+
+        // Ordenar mensajes por fecha
+        const mensajesOrdenados = historyData.mensajes.sort((a: ConversationMessage, b: ConversationMessage) => 
+          new Date(a.fecha_iso).getTime() - new Date(b.fecha_iso).getTime()
+        );
+
+        return {
+          customer: selectedRecord,
+          conversations: {
+            ...historyData,
+            mensajes: mensajesOrdenados
+          }
+        };
+
+      } catch (error) {
+        console.error("❌ Error obteniendo historial:", error);
+        throw error;
+      }
     },
-    enabled: !!selectedCustomer
+    enabled: !!selectedRecord
   });
 
-  // Filtrar clientes basado en el término de búsqueda
-  const filteredCustomers = allCustomers?.filter(customer => {
+  // Filtrar registros según el término de búsqueda
+  const filteredRecords = allRecords?.filter(record => {
     if (!searchTerm.trim()) return true;
     
     const search = searchTerm.toLowerCase();
     return (
-      customer.Cliente?.toLowerCase().includes(search) ||
-      customer.Cedula?.toString().includes(search) ||
-      customer.Celular?.toString().includes(search) ||
-      customer.idCompra?.toString().includes(search)
-    );
-  });
+      record.Cliente?.toLowerCase().includes(search) ||
+      record.Cedula?.toString().includes(search) ||
+      record.Celular?.toString().includes(search) ||
+      record.idCompra?.toString().includes(search) ||
+      record.conversation_id?.toString().includes(search)
+    );  });  // Función para formatear texto con markdown (convertir **texto** y *texto* a <strong>texto</strong>)
+  const formatMarkdownText = (text: string) => {
+    // Primero convertir **texto** a <strong>texto</strong>
+    let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Luego convertir *texto* a <strong>texto</strong> (pero evitar conflictos con texto ya formateado)
+    formattedText = formattedText.replace(/\*([^*<>]+?)\*/g, function(match, p1) {
+      // Verificar que no esté dentro de un tag <strong> existente
+      return '<strong>' + p1 + '</strong>';
+    });
+    
+    return formattedText;
+  };
 
-  const parseMessage = (msg: any) => {
-    try {
-      if (msg.type === "human") {
-        return msg.content;
-      } else if (msg.type === "ai") {
-        let output = "";
-        
-        if (typeof msg.content === 'string') {
-          try {
-            const parsed = JSON.parse(msg.content);
-            output = parsed.output || "";
-          } catch {
-            output = msg.content;
-          }
-        } else if (typeof msg.content === 'object' && msg.content.output) {
-          output = msg.content.output;
-        } else {
-          output = msg.content;
-        }
-        
-        if (!output || output.trim() === "") {
-          return "plantilla personalizada whatsapp";
-        }
-        
-        return output;
+  // Función para parsear mensajes
+  const parseMessage = (message: ConversationMessage) => {
+    const messageText = message.texto?.trim() || "";
+    
+    // Filtrar mensajes de estado del sistema (agregó, eliminó, etc.) - PARA CUALQUIER ROL
+    if (messageText) {
+      // Patrón más completo para capturar acciones del sistema con nombres y preposiciones
+      const estadosSistemaPatterns = [
+        /\b\w+\s+(agregó|añadió|eliminó|quitó|modificó|cambió|actualizó)\b/i,  // "Paolo agregó", "Usuario eliminó"
+        /\b\w+\s+(agregó|añadió|eliminó|quitó|modificó|cambió|actualizó)\s+(a\s+)?\w+/i,  // "Paolo eliminó a pagado"
+        /^(agregó|añadió|eliminó|quitó|modificó|cambió|actualizó)/i,  // Comienza con acción
+        /\[ERROR\s+EXTERNO\]/i,  // Errores externos
+        /\(#\d+\)/,  // Códigos de error como (#100)
+        /^Paolo\s+(eliminó|agregó|añadió|quitó|modificó|cambió|actualizó)/i  // Específicamente Paolo
+      ];
+      
+      const isStateMessage = estadosSistemaPatterns.some(pattern => pattern.test(messageText));
+      if (isStateMessage) {
+        console.log("🚫 Mensaje filtrado:", messageText, "- Rol:", message.rol);
+        return null; // No mostrar estos mensajes
       }
-      return msg.content;
-    } catch {
-      return msg.content;
     }
+      if (!messageText) {
+      return message.rol === "BOT" ? "<strong>PLANTILLA PERSONALIZADA WHATSAPP</strong>" : "<strong>IMAGEN ENVIADA</strong>";
+    }
+    
+    // Cambiar [Sin contenido] por IMAGEN ENVIADA en negrita
+    if (messageText === "[Sin contenido]") {
+      return "<strong>IMAGEN ENVIADA</strong>";
+    }
+    
+    // Formatear texto con markdown
+    return formatMarkdownText(messageText);
   };
 
   return (
@@ -158,7 +223,8 @@ const AnalysisTab = () => {
               className="flex-1"
             />
           </div>
-        </CardContent>      </Card>
+        </CardContent>
+      </Card>
 
       {isLoadingAll ? (
         <LoadingState 
@@ -169,30 +235,31 @@ const AnalysisTab = () => {
       ) : (
         <>
           {/* Lista de clientes */}
-          {filteredCustomers && filteredCustomers.length > 0 && !selectedCustomer && (
+          {filteredRecords && filteredRecords.length > 0 && !selectedRecord && (
             <Card>
               <CardHeader>
-                <CardTitle>Clientes con Conversaciones ({filteredCustomers.length})</CardTitle>
+                <CardTitle>Clientes con Conversaciones ({filteredRecords.length})</CardTitle>
               </CardHeader>
               <CardContent>
                 <ScrollArea className="h-[400px]">
                   <div className="space-y-2">
-                    {filteredCustomers.map((customer) => (
+                    {filteredRecords.map((record) => (
                       <div
-                        key={customer.idCompra}
+                        key={record.idCompra}
                         className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                        onClick={() => setSelectedCustomer(customer)}
+                        onClick={() => setSelectedRecord(record)}
                       >
                         <div className="flex justify-between items-start">
                           <div className="space-y-1">
-                            <p className="font-semibold">{customer.Cliente}</p>
+                            <p className="font-semibold">{record.Cliente}</p>
                             <div className="text-sm text-muted-foreground space-y-1">
-                              <p>Cédula: {customer.Cedula}</p>
-                              <p>Celular: {customer.Celular}</p>
-                              <p>ID Compra: {customer.idCompra}</p>
+                              <p>Cédula: {record.Cedula}</p>
+                              <p>Celular: {record.Celular}</p>
+                              <p>ID Compra: {record.idCompra}</p>
+                              <p>Conversation ID: {record.conversation_id}</p>
                             </div>
                           </div>
-                          {customer.ComprobanteEnviado === "SI" && (
+                          {record.ComprobanteEnviado === "SI" && (
                             <Badge className="bg-green-500 hover:bg-green-600">
                               Comprobante Enviado
                             </Badge>
@@ -207,15 +274,17 @@ const AnalysisTab = () => {
           )}
 
           {/* Detalle del cliente seleccionado */}
-          {selectedCustomer && (
+          {selectedRecord && (
             <div className="space-y-4">
               <Button 
                 variant="outline" 
-                onClick={() => setSelectedCustomer(null)}
+                onClick={() => setSelectedRecord(null)}
                 className="mb-4"
               >
                 ← Volver a la lista
-              </Button>              {isLoadingDetail ? (
+              </Button>
+
+              {isLoadingDetail ? (
                 <LoadingState 
                   title="Cargando detalles del cliente..."
                   message="Obteniendo información completa y historial de conversaciones."
@@ -301,7 +370,7 @@ const AnalysisTab = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {!customerData.conversations || customerData.conversations.length === 0 ? (
+                      {!customerData.conversations || customerData.conversations.mensajes.length === 0 ? (
                         <div className="text-center py-12">
                           <MessageCircle className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
                           <p className="text-lg font-medium text-muted-foreground">
@@ -313,37 +382,46 @@ const AnalysisTab = () => {
                         </div>
                       ) : (
                         <ScrollArea className="h-[600px] pr-4">
-                          <div className="space-y-3 py-2">
-                            {customerData.conversations.map((msg: any, idx: number) => {
-                              const messageText = parseMessage(msg.message);
-                              const isHuman = msg.message.type === "human";
-                              const timestamp = new Date(msg.created_at).toLocaleString('es-ES', {
+                          <div className="space-y-3 py-2">                            {customerData.conversations.mensajes.map((msg: ConversationMessage, idx: number) => {
+                              const messageText = parseMessage(msg);
+                              const isBot = msg.rol === "BOT";
+                              const timestamp = new Date(msg.fecha_iso).toLocaleString('es-ES', {
                                 hour: '2-digit',
-                                minute: '2-digit'
+                                minute: '2-digit',
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
                               });
 
-                              if (!messageText || messageText.trim() === "") return null;
+                              // Filtrar mensajes nulos (estados del bot) y mensajes vacíos
+                              if (messageText === null || !messageText || messageText.trim() === "") return null;
 
                               return (
                                 <div
                                   key={msg.id || idx}
-                                  className={`flex ${isHuman ? 'justify-start' : 'justify-end'}`}
+                                  className={`flex ${!isBot ? 'justify-start' : 'justify-end'}`}
                                 >
-                                  <div className={`flex flex-col ${isHuman ? 'items-start' : 'items-end'} max-w-[75%]`}>
+                                  <div className={`flex flex-col ${!isBot ? 'items-start' : 'items-end'} max-w-[75%]`}>
                                     <div className="text-xs text-muted-foreground mb-1 px-2">
-                                      {isHuman ? customerData.customer.Cliente : "Bot POINT"}
+                                      {!isBot ? customerData.customer.Cliente : "Bot POINT"}
                                     </div>
                                     <div
                                       className={`rounded-2xl px-4 py-2.5 ${
-                                        isHuman
+                                        !isBot
                                           ? 'bg-muted text-foreground rounded-tl-none'
                                           : 'bg-primary text-primary-foreground rounded-tr-none'
-                                      }`}
-                                    >
-                                      <p className="text-sm whitespace-pre-wrap break-words">
-                                        {messageText}
-                                      </p>
-                                      <div className={`text-[10px] mt-1 ${isHuman ? 'text-muted-foreground' : 'text-primary-foreground/70'}`}>
+                                      }`}                                    >
+                                      {messageText.includes('<strong>') ? (
+                                        <p 
+                                          className="text-sm whitespace-pre-wrap break-words"
+                                          dangerouslySetInnerHTML={{ __html: messageText }}
+                                        />
+                                      ) : (
+                                        <p className="text-sm whitespace-pre-wrap break-words">
+                                          {messageText}
+                                        </p>
+                                      )}
+                                      <div className={`text-[10px] mt-1 ${!isBot ? 'text-muted-foreground' : 'text-primary-foreground/70'}`}>
                                         {timestamp}
                                       </div>
                                     </div>
@@ -357,11 +435,18 @@ const AnalysisTab = () => {
                     </CardContent>
                   </Card>
                 </>
-              ) : null}
+              ) : (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Error al cargar el historial de conversación. Por favor intenta nuevamente.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           )}
 
-          {!isLoadingAll && filteredCustomers && filteredCustomers.length === 0 && (
+          {!isLoadingAll && filteredRecords && filteredRecords.length === 0 && (
             <Card>
               <CardContent className="py-12">
                 <div className="text-center">
@@ -374,12 +459,11 @@ const AnalysisTab = () => {
                   </p>
                 </div>
               </CardContent>
-            </Card>
-          )}
+            </Card>          )}
         </>
       )}
     </div>
   );
 };
 
-export default AnalysisTab;
+export default ConversationHistoryTab;
