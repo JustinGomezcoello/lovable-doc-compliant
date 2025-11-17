@@ -12,7 +12,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   useEffect(() => {
@@ -29,35 +29,20 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        toast({
-          variant: "destructive",
-          title: "Error de autenticación",
-          description: error.message === "Invalid login credentials" 
-            ? "Credenciales inválidas. Verifica tu correo y contraseña."
-            : error.message,
-        });
-        return;
-      }
-
-      if (data.session) {
+      if (username.trim() === "point" && password === "point") {
+        sessionStorage.setItem("authenticated", "true");
         toast({
           title: "¡Bienvenido!",
           description: "Inicio de sesión exitoso",
         });
         navigate("/dashboard");
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Credenciales inválidas",
+          description: "Usuario o contraseña incorrectos",
+        });
       }
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Ocurrió un error al intentar iniciar sesión",
-      });
     } finally {
       setLoading(false);
     }
@@ -77,16 +62,16 @@ const Auth = () => {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Correo electrónico</Label>
+              <Label htmlFor="username">Usuario</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="point@point.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                type="text"
+                placeholder="point"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 disabled={loading}
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
             <div className="space-y-2">
