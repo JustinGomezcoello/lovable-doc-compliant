@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { type, date } = await req.json()
+    const { type, date, dateFrom, dateTo } = await req.json()
     
     const CHATWOOT_BASE_URL = Deno.env.get('CHATWOOT_BASE_URL')
     const CHATWOOT_API_TOKEN = Deno.env.get('CHATWOOT_API_TOKEN')
@@ -45,6 +45,19 @@ serve(async (req) => {
         
         targetDate.setHours(23, 59, 59, 999)
         const until = Math.floor(targetDate.getTime() / 1000)
+        
+        url += `&since=${since}&until=${until}`
+      }
+
+      // Add date range filters for general view
+      if (type === 'range' && dateFrom && dateTo) {
+        const fromDate = new Date(dateFrom)
+        fromDate.setHours(0, 0, 0, 0)
+        const since = Math.floor(fromDate.getTime() / 1000)
+        
+        const toDate = new Date(dateTo)
+        toDate.setHours(23, 59, 59, 999)
+        const until = Math.floor(toDate.getTime() / 1000)
         
         url += `&since=${since}&until=${until}`
       }
