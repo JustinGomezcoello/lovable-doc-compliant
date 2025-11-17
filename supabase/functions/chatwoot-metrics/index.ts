@@ -13,6 +13,8 @@ serve(async (req) => {
   try {
     const { type, date, dateFrom, dateTo } = await req.json()
     
+    console.log('Request params:', { type, date, dateFrom, dateTo })
+    
     const CHATWOOT_BASE_URL = Deno.env.get('CHATWOOT_BASE_URL')
     const CHATWOOT_API_TOKEN = Deno.env.get('CHATWOOT_API_TOKEN')
     const CHATWOOT_ACCOUNT_ID = Deno.env.get('CHATWOOT_ACCOUNT_ID')
@@ -47,20 +49,22 @@ serve(async (req) => {
         const until = Math.floor(targetDate.getTime() / 1000)
         
         url += `&since=${since}&until=${until}`
+        console.log(`Day filter for ${label}: since=${since}, until=${until}`)
       }
 
       // Add date range filters for general view
       if (type === 'range' && dateFrom && dateTo) {
-        const fromDate = new Date(dateFrom)
-        fromDate.setHours(0, 0, 0, 0)
+        const fromDate = new Date(dateFrom + 'T00:00:00')
         const since = Math.floor(fromDate.getTime() / 1000)
         
-        const toDate = new Date(dateTo)
-        toDate.setHours(23, 59, 59, 999)
+        const toDate = new Date(dateTo + 'T23:59:59')
         const until = Math.floor(toDate.getTime() / 1000)
         
         url += `&since=${since}&until=${until}`
+        console.log(`Range filter for ${label}: since=${since} (${dateFrom}), until=${until} (${dateTo})`)
       }
+
+      console.log(`Fetching: ${url}`)
 
       const response = await fetch(url, {
         headers: {
@@ -71,9 +75,12 @@ serve(async (req) => {
 
       if (response.ok) {
         const data = await response.json()
-        metrics[label] = data.data?.meta?.all_count || 0
+        const count = data.data?.meta?.all_count || 0
+        metrics[label] = count
+        console.log(`Label ${label}: ${count} conversations`)
       } else {
-        console.error(`Error fetching label ${label}:`, await response.text())
+        const errorText = await response.text()
+        console.error(`Error fetching label ${label}:`, errorText)
         metrics[label] = 0
       }
     }

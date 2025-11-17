@@ -18,29 +18,42 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { DateRange } from "react-day-picker";
 
 const GeneralTab = () => {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(),
-    to: new Date()
-  });
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(new Date());
+  const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
 
   // Fetch Chatwoot metrics via edge function
   const { data: chatwootMetrics, isLoading: loadingChatwoot } = useQuery({
-    queryKey: ["chatwoot-general", dateRange?.from, dateRange?.to],
+    queryKey: ["chatwoot-general", dateFrom?.toISOString(), dateTo?.toISOString()],
     queryFn: async () => {
+      if (!dateFrom || !dateTo) {
+        throw new Error("Fechas requeridas");
+      }
+
+      console.log("Fetching metrics for:", {
+        dateFrom: format(dateFrom, "yyyy-MM-dd"),
+        dateTo: format(dateTo, "yyyy-MM-dd")
+      });
+
       const { data, error } = await supabase.functions.invoke("chatwoot-metrics", {
         body: { 
           type: "range",
-          dateFrom: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined,
-          dateTo: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined
+          dateFrom: format(dateFrom, "yyyy-MM-dd"),
+          dateTo: format(dateTo, "yyyy-MM-dd")
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching metrics:", error);
+        throw error;
+      }
+      
+      console.log("Metrics received:", data);
       return data;
-    }
+    },
+    retry: 1,
+    enabled: !!dateFrom && !!dateTo
   });
 
   if (loadingChatwoot) {
@@ -55,40 +68,53 @@ const GeneralTab = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold mb-2">Métricas Generales</h2>
-          <p className="text-muted-foreground">Vista general de campañas y conversaciones</p>
-        </div>
+      <div>
+        <h2 className="text-2xl font-bold mb-2">Métricas Generales</h2>
+        <p className="text-muted-foreground mb-4">Vista general de campañas y conversaciones</p>
         
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline">
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {dateRange?.from ? (
-                dateRange.to ? (
-                  <>
-                    {format(dateRange.from, "PP")} - {format(dateRange.to, "PP")}
-                  </>
-                ) : (
-                  format(dateRange.from, "PP")
-                )
-              ) : (
-                "Seleccionar rango"
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="end">
-            <Calendar
-              mode="range"
-              selected={dateRange}
-              onSelect={setDateRange}
-              initialFocus
-              numberOfMonths={2}
-              className={cn("p-3 pointer-events-auto")}
-            />
-          </PopoverContent>
-        </Popover>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-muted-foreground">Fecha Inicio</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="justify-start text-left font-normal min-w-[200px]">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFrom ? format(dateFrom, "PPP") : "Seleccionar fecha"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateFrom}
+                  onSelect={setDateFrom}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-medium text-muted-foreground">Fecha Fin</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="justify-start text-left font-normal min-w-[200px]">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateTo ? format(dateTo, "PPP") : "Seleccionar fecha"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dateTo}
+                  onSelect={setDateTo}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
