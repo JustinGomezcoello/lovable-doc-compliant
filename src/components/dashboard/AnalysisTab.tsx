@@ -84,17 +84,27 @@ const AnalysisTab = () => {
         return msg.content;
       } else if (msg.type === "ai") {
         // For AI messages, content might be a string or already an object
+        let output = "";
+        
         if (typeof msg.content === 'string') {
           try {
             const parsed = JSON.parse(msg.content);
-            return parsed.output || msg.content;
+            output = parsed.output || "";
           } catch {
-            return msg.content;
+            output = msg.content;
           }
         } else if (typeof msg.content === 'object' && msg.content.output) {
-          return msg.content.output;
+          output = msg.content.output;
+        } else {
+          output = msg.content;
         }
-        return msg.content;
+        
+        // Si output está vacío, mostrar mensaje de plantilla personalizada
+        if (!output || output.trim() === "") {
+          return "plantilla personalizada whatsapp";
+        }
+        
+        return output;
       }
       return msg.content;
     } catch {
