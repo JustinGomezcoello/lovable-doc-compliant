@@ -33,7 +33,7 @@ const Auth = () => {
         // 1) Intentar iniciar sesión con Supabase
         const { data, error } = await supabase.auth.signInWithPassword({
           email: "point@point.com",
-          password: "point",
+          password: "point123",
         });
 
         // 2) Si falla, crear la cuenta automáticamente y pedir confirmar (o desactivar confirmación)
@@ -41,7 +41,7 @@ const Auth = () => {
           const redirectUrl = `${window.location.origin}/dashboard`;
           const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
             email: "point@point.com",
-            password: "point",
+            password: "point123",
             options: { emailRedirectTo: redirectUrl },
           });
 
