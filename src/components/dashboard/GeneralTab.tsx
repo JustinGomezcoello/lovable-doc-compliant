@@ -18,18 +18,23 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { DateRange } from "react-day-picker";
 
 const GeneralTab = () => {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(),
+    to: new Date()
+  });
 
   // Fetch Chatwoot metrics via edge function
   const { data: chatwootMetrics, isLoading: loadingChatwoot } = useQuery({
-    queryKey: ["chatwoot-general", selectedDate],
+    queryKey: ["chatwoot-general", dateRange?.from, dateRange?.to],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("chatwoot-metrics", {
         body: { 
-          type: "day",
-          date: selectedDate ? format(selectedDate, "yyyy-MM-dd") : undefined
+          type: "range",
+          dateFrom: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined,
+          dateTo: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined
         }
       });
       
@@ -60,15 +65,26 @@ const GeneralTab = () => {
           <PopoverTrigger asChild>
             <Button variant="outline">
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {selectedDate ? format(selectedDate, "PPP") : "Seleccionar fecha"}
+              {dateRange?.from ? (
+                dateRange.to ? (
+                  <>
+                    {format(dateRange.from, "PP")} - {format(dateRange.to, "PP")}
+                  </>
+                ) : (
+                  format(dateRange.from, "PP")
+                )
+              ) : (
+                "Seleccionar rango"
+              )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
+          <PopoverContent className="w-auto p-0" align="end">
             <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
+              mode="range"
+              selected={dateRange}
+              onSelect={setDateRange}
               initialFocus
+              numberOfMonths={2}
               className={cn("p-3 pointer-events-auto")}
             />
           </PopoverContent>
