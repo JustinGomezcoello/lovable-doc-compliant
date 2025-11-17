@@ -52,16 +52,19 @@ serve(async (req) => {
         console.log(`Day filter for ${label}: since=${since}, until=${until}`)
       }
 
-      // Add date range filters for general view
+      // Add date range filters for general view (Ecuador timezone UTC-5)
       if (type === 'range' && dateFrom && dateTo) {
-        const fromDate = new Date(dateFrom + 'T00:00:00')
-        const since = Math.floor(fromDate.getTime() / 1000)
+        // Ecuador está en UTC-5, por lo que debemos ajustar
+        // Si la fecha es 2025-11-16 00:00:00 en Ecuador = 2025-11-16 05:00:00 UTC
+        const fromDate = new Date(dateFrom + 'T00:00:00Z') // UTC
+        const ecuadorOffsetSeconds = 5 * 60 * 60 // 5 horas en segundos
+        const since = Math.floor(fromDate.getTime() / 1000) + ecuadorOffsetSeconds
         
-        const toDate = new Date(dateTo + 'T23:59:59')
-        const until = Math.floor(toDate.getTime() / 1000)
+        const toDate = new Date(dateTo + 'T23:59:59Z') // UTC
+        const until = Math.floor(toDate.getTime() / 1000) + ecuadorOffsetSeconds
         
         url += `&since=${since}&until=${until}`
-        console.log(`Range filter for ${label}: since=${since} (${dateFrom}), until=${until} (${dateTo})`)
+        console.log(`Range filter for ${label}: since=${since} (${dateFrom} 00:00:00 Ecuador), until=${until} (${dateTo} 23:59:59 Ecuador)`)
       }
 
       console.log(`Fetching: ${url}`)
