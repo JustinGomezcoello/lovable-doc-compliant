@@ -20,7 +20,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const GeneralTab = () => {
-  const [dateFrom, setDateFrom] = useState<Date | undefined>(new Date());
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(new Date(2025, 8, 1)); // September 1, 2025
   const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
 
   // Fetch Chatwoot metrics via edge function
