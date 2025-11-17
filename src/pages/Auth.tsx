@@ -30,11 +30,23 @@ const Auth = () => {
 
     try {
       if (username.trim() === "point" && password === "point") {
-        sessionStorage.setItem("authenticated", "true");
-        toast({
-          title: "¡Bienvenido!",
-          description: "Inicio de sesión exitoso",
+        // Autenticar también con Supabase para pasar RLS
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: "point@point.com",
+          password: "point",
         });
+
+        if (error || !data.session) {
+          toast({
+            variant: "destructive",
+            title: "No se pudo iniciar sesión en Supabase",
+            description: "Verifica que el usuario point@point.com exista y la contraseña sea correcta.",
+          });
+          return;
+        }
+
+        sessionStorage.setItem("authenticated", "true");
+        toast({ title: "¡Bienvenido!", description: "Inicio de sesión exitoso" });
         navigate("/dashboard");
       } else {
         toast({
