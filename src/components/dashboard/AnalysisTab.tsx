@@ -11,79 +11,102 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const AnalysisTab = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [searching, setSearching] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
 
-  const { data: customerData, refetch, isLoading } = useQuery({
-    queryKey: ["customer-search", searchTerm],
+  // Query para obtener todos los clientes con conversaciones
+  const { data: allCustomers, isLoading: isLoadingAll } = useQuery({
+    queryKey: ["all-customers-with-conversations"],
     queryFn: async () => {
-      if (!searchTerm) return null;
-
-      console.log("🔍 Searching for:", searchTerm);
-
-      // Search in POINT_Competencia
       const { data, error } = await supabase
         .from("POINT_Competencia")
-        .select("*")
-        .or(`Cedula.eq.${searchTerm},Celular.eq.${searchTerm},idCompra.eq.${searchTerm}`)
-        .limit(1)
-        .maybeSingle();
+        .select("idCompra, Cliente, Cedula, Celular, conversation_id, ComprobanteEnviado, Articulo")
+        .gt("conversation_id", 0)
+        .order("Cliente", { ascending: true });
 
       if (error) {
-        console.error("❌ Error searching customer:", error);
+        console.error("❌ Error loading customers:", error);
+        return [];
+      }
+
+      return data || [];
+    }
+  });
+
+  // Query para obtener el detalle del cliente seleccionado y su conversación
+  const { data: customerData, isLoading: isLoadingDetail } = useQuery({
+    queryKey: ["customer-detail", selectedCustomer?.idCompra],
+    queryFn: async () => {
+      if (!selectedCustomer) return null;
+
+      console.log("🔍 Loading detail for customer:", selectedCustomer.idCompra);
+
+      // Get full customer data
+      const { data: customerDetail, error: customerError } = await supabase
+        .from("POINT_Competencia")
+        .select("*")
+        .eq("idCompra", selectedCustomer.idCompra)
+        .maybeSingle();
+
+      if (customerError) {
+        console.error("❌ Error loading customer detail:", customerError);
         return null;
       }
 
-      if (!data) {
-        console.log("⚠️ No customer found");
+      if (!customerDetail) {
+        console.log("⚠️ No customer detail found");
         return null;
       }
 
-      console.log("✅ Customer found:", {
-        idCompra: data.idCompra,
-        Cliente: data.Cliente,
-        conversation_id: data.conversation_id
+      console.log("✅ Customer detail found:", {
+        idCompra: customerDetail.idCompra,
+        Cliente: customerDetail.Cliente,
+        conversation_id: customerDetail.conversation_id
       });
 
       // Get conversation history if conversation_id exists
       let conversations = null;
-      if (data.conversation_id && data.conversation_id > 0) {
-        console.log("🔍 Fetching chat history for session_id:", data.conversation_id);
+      if (customerDetail.conversation_id && customerDetail.conversation_id > 0) {
+        console.log("🔍 Fetching chat history for session_id:", customerDetail.conversation_id);
         
         const { data: chatData, error: chatError } = await supabase
           .from("n8n_chat_histories")
           .select("*")
-          .eq("session_id", data.conversation_id.toString())
+          .eq("session_id", customerDetail.conversation_id.toString())
           .order("created_at", { ascending: true });
         
         if (chatError) {
           console.error("❌ Error fetching chat history:", chatError);
         } else {
           console.log("✅ Chat messages found:", chatData?.length || 0);
-          console.log("📝 First message sample:", chatData?.[0]);
           conversations = chatData;
         }
       } else {
         console.log("⚠️ No conversation_id found or is 0");
       }
 
-      return { customer: data, conversations };
+      return { customer: customerDetail, conversations };
     },
-    enabled: false
+    enabled: !!selectedCustomer
   });
 
-  const handleSearch = () => {
-    if (!searchTerm.trim()) return;
-    setSearching(true);
-    refetch().finally(() => setSearching(false));
-  };
+  // Filtrar clientes basado en el término de búsqueda
+  const filteredCustomers = allCustomers?.filter(customer => {
+    if (!searchTerm.trim()) return true;
+    
+    const search = searchTerm.toLowerCase();
+    return (
+      customer.Cliente?.toLowerCase().includes(search) ||
+      customer.Cedula?.toString().includes(search) ||
+      customer.Celular?.toString().includes(search) ||
+      customer.idCompra?.toString().includes(search)
+    );
+  });
 
   const parseMessage = (msg: any) => {
     try {
       if (msg.type === "human") {
-        // For human messages, content is directly the text
         return msg.content;
       } else if (msg.type === "ai") {
-        // For AI messages, content might be a string or already an object
         let output = "";
         
         if (typeof msg.content === 'string') {
@@ -99,7 +122,6 @@ const AnalysisTab = () => {
           output = msg.content;
         }
         
-        // Si output está vacío, mostrar mensaje de plantilla personalizada
         if (!output || output.trim() === "") {
           return "plantilla personalizada whatsapp";
         }
@@ -116,7 +138,7 @@ const AnalysisTab = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold mb-2">Conversaciones de WhatsApp</h2>
-        <p className="text-muted-foreground">Busca por cédula, celular o ID de compra para ver el historial de conversaciones del cliente</p>
+        <p className="text-muted-foreground">Busca por cédula, celular, nombre o ID de compra para ver el historial de conversaciones del cliente</p>
       </div>
 
       <Card>
@@ -129,180 +151,231 @@ const AnalysisTab = () => {
         <CardContent>
           <div className="flex gap-4">
             <Input
-              placeholder="Ingresa cédula, celular o ID de compra..."
+              placeholder="Busca por nombre, cédula, celular o ID de compra..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSearch()}
               className="flex-1"
             />
-            <Button onClick={handleSearch} disabled={searching || !searchTerm.trim()}>
-              <Search className="w-4 h-4 mr-2" />
-              {searching ? "Buscando..." : "Buscar"}
-            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {isLoading && (
+      {isLoadingAll ? (
         <div className="space-y-4">
-          <Skeleton className="h-48 w-full" />
-          <Skeleton className="h-96 w-full" />
+          <Skeleton className="h-32 w-full" />
         </div>
-      )}
-
-      {!isLoading && customerData?.customer && (
+      ) : (
         <>
-          {/* Customer Information Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Información del Cliente
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <User className="w-5 h-5 text-primary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Cliente</p>
-                    <p className="font-semibold">{customerData.customer.Cliente || "N/A"}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <CreditCard className="w-5 h-5 text-primary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Cédula</p>
-                    <p className="font-semibold">{customerData.customer.Cedula || "N/A"}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <Phone className="w-5 h-5 text-primary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Celular</p>
-                    <p className="font-semibold">{customerData.customer.Celular || "N/A"}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <Package className="w-5 h-5 text-primary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Artículo</p>
-                    <p className="font-semibold">{customerData.customer.Articulo || "N/A"}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <MessageCircle className="w-5 h-5 text-primary" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">ID de Compra</p>
-                    <p className="font-semibold">{customerData.customer.idCompra || "N/A"}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="w-5 h-5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Estado de Comprobante</p>
-                    {customerData.customer.ComprobanteEnviado === "SI" ? (
-                      <Badge className="bg-green-500 hover:bg-green-600">
-                        Comprobante Enviado
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-orange-500 text-orange-500">
-                        Pendiente
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Conversation History Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageCircle className="w-5 h-5" />
-                Historial de Conversación
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!customerData.conversations || customerData.conversations.length === 0 ? (
-                <div className="text-center py-12">
-                  <MessageCircle className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium text-muted-foreground">
-                    No hay conversaciones disponibles
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Este cliente no tiene historial de conversaciones registrado
-                  </p>
-                </div>
-              ) : (
-                <ScrollArea className="h-[600px] pr-4">
-                  <div className="space-y-3 py-2">
-                    {customerData.conversations.map((msg: any, idx: number) => {
-                      const messageText = parseMessage(msg.message);
-                      const isHuman = msg.message.type === "human";
-                      const timestamp = new Date(msg.created_at).toLocaleString('es-ES', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      });
-
-                      // Skip if message is empty
-                      if (!messageText || messageText.trim() === "") return null;
-
-                      return (
-                        <div
-                          key={msg.id || idx}
-                          className={`flex ${isHuman ? 'justify-start' : 'justify-end'}`}
-                        >
-                          <div className={`flex flex-col ${isHuman ? 'items-start' : 'items-end'} max-w-[75%]`}>
-                            <div className="text-xs text-muted-foreground mb-1 px-2">
-                              {isHuman ? customerData.customer.Cliente : "Bot POINT"}
-                            </div>
-                            <div
-                              className={`rounded-2xl px-4 py-2.5 ${
-                                isHuman
-                                  ? 'bg-muted text-foreground rounded-tl-none'
-                                  : 'bg-primary text-primary-foreground rounded-tr-none'
-                              }`}
-                            >
-                              <p className="text-sm whitespace-pre-wrap break-words">
-                                {messageText}
-                              </p>
-                              <div className={`text-[10px] mt-1 ${isHuman ? 'text-muted-foreground' : 'text-primary-foreground/70'}`}>
-                                {timestamp}
-                              </div>
+          {/* Lista de clientes */}
+          {filteredCustomers && filteredCustomers.length > 0 && !selectedCustomer && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Clientes con Conversaciones ({filteredCustomers.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[400px]">
+                  <div className="space-y-2">
+                    {filteredCustomers.map((customer) => (
+                      <div
+                        key={customer.idCompra}
+                        className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                        onClick={() => setSelectedCustomer(customer)}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1">
+                            <p className="font-semibold">{customer.Cliente}</p>
+                            <div className="text-sm text-muted-foreground space-y-1">
+                              <p>Cédula: {customer.Cedula}</p>
+                              <p>Celular: {customer.Celular}</p>
+                              <p>ID Compra: {customer.idCompra}</p>
                             </div>
                           </div>
+                          {customer.ComprobanteEnviado === "SI" && (
+                            <Badge className="bg-green-500 hover:bg-green-600">
+                              Comprobante Enviado
+                            </Badge>
+                          )}
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 </ScrollArea>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
+              </CardContent>
+            </Card>
+          )}
 
-      {!isLoading && !customerData && searchTerm && (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center">
-              <Search className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <p className="text-lg font-medium text-muted-foreground">
-                No se encontraron resultados
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Intenta buscar con otra cédula, celular o ID de compra
-              </p>
+          {/* Detalle del cliente seleccionado */}
+          {selectedCustomer && (
+            <div className="space-y-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setSelectedCustomer(null)}
+                className="mb-4"
+              >
+                ← Volver a la lista
+              </Button>
+
+              {isLoadingDetail ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-48 w-full" />
+                  <Skeleton className="h-96 w-full" />
+                </div>
+              ) : customerData?.customer ? (
+                <>
+                  {/* Customer Information Card */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <User className="w-5 h-5" />
+                        Información del Cliente
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                          <User className="w-5 h-5 text-primary" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Cliente</p>
+                            <p className="font-semibold">{customerData.customer.Cliente || "N/A"}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                          <CreditCard className="w-5 h-5 text-primary" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Cédula</p>
+                            <p className="font-semibold">{customerData.customer.Cedula || "N/A"}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                          <Phone className="w-5 h-5 text-primary" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Celular</p>
+                            <p className="font-semibold">{customerData.customer.Celular || "N/A"}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                          <Package className="w-5 h-5 text-primary" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Artículo</p>
+                            <p className="font-semibold">{customerData.customer.Articulo || "N/A"}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                          <MessageCircle className="w-5 h-5 text-primary" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">ID de Compra</p>
+                            <p className="font-semibold">{customerData.customer.idCompra || "N/A"}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                          <div className="w-5 h-5" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Estado de Comprobante</p>
+                            {customerData.customer.ComprobanteEnviado === "SI" ? (
+                              <Badge className="bg-green-500 hover:bg-green-600">
+                                Comprobante Enviado
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="border-orange-500 text-orange-500">
+                                Pendiente
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Conversation History Card */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <MessageCircle className="w-5 h-5" />
+                        Historial de Conversación
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {!customerData.conversations || customerData.conversations.length === 0 ? (
+                        <div className="text-center py-12">
+                          <MessageCircle className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                          <p className="text-lg font-medium text-muted-foreground">
+                            No hay conversaciones disponibles
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Este cliente no tiene historial de conversaciones registrado
+                          </p>
+                        </div>
+                      ) : (
+                        <ScrollArea className="h-[600px] pr-4">
+                          <div className="space-y-3 py-2">
+                            {customerData.conversations.map((msg: any, idx: number) => {
+                              const messageText = parseMessage(msg.message);
+                              const isHuman = msg.message.type === "human";
+                              const timestamp = new Date(msg.created_at).toLocaleString('es-ES', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              });
+
+                              if (!messageText || messageText.trim() === "") return null;
+
+                              return (
+                                <div
+                                  key={msg.id || idx}
+                                  className={`flex ${isHuman ? 'justify-start' : 'justify-end'}`}
+                                >
+                                  <div className={`flex flex-col ${isHuman ? 'items-start' : 'items-end'} max-w-[75%]`}>
+                                    <div className="text-xs text-muted-foreground mb-1 px-2">
+                                      {isHuman ? customerData.customer.Cliente : "Bot POINT"}
+                                    </div>
+                                    <div
+                                      className={`rounded-2xl px-4 py-2.5 ${
+                                        isHuman
+                                          ? 'bg-muted text-foreground rounded-tl-none'
+                                          : 'bg-primary text-primary-foreground rounded-tr-none'
+                                      }`}
+                                    >
+                                      <p className="text-sm whitespace-pre-wrap break-words">
+                                        {messageText}
+                                      </p>
+                                      <div className={`text-[10px] mt-1 ${isHuman ? 'text-muted-foreground' : 'text-primary-foreground/70'}`}>
+                                        {timestamp}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
+                      )}
+                    </CardContent>
+                  </Card>
+                </>
+              ) : null}
             </div>
-          </CardContent>
-        </Card>
+          )}
+
+          {!isLoadingAll && filteredCustomers && filteredCustomers.length === 0 && (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center">
+                  <Search className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-lg font-medium text-muted-foreground">
+                    No se encontraron resultados
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Intenta buscar con otra cédula, celular, nombre o ID de compra
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );
