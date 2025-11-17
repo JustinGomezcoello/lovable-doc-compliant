@@ -57,7 +57,7 @@ const Dashboard = () => {
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="day-by-day">Día a Día</TabsTrigger>
-            <TabsTrigger value="analysis">Análisis Avanzado</TabsTrigger>
+            <TabsTrigger value="analysis">Conversaciones</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" className="space-y-6">
