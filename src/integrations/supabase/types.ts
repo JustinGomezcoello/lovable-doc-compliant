@@ -168,6 +168,7 @@ export type Database = {
           "Tiempo De Llamada": string | null
           TipoDePago: string | null
           Transcript: string | null
+          UltimaActualisacionAPI: string | null
           UltimaLlamada: string | null
           "Url Gravacion": string | null
           WhatsappEnviado: string | null
@@ -217,6 +218,7 @@ export type Database = {
           "Tiempo De Llamada"?: string | null
           TipoDePago?: string | null
           Transcript?: string | null
+          UltimaActualisacionAPI?: string | null
           UltimaLlamada?: string | null
           "Url Gravacion"?: string | null
           WhatsappEnviado?: string | null
@@ -266,6 +268,7 @@ export type Database = {
           "Tiempo De Llamada"?: string | null
           TipoDePago?: string | null
           Transcript?: string | null
+          UltimaActualisacionAPI?: string | null
           UltimaLlamada?: string | null
           "Url Gravacion"?: string | null
           WhatsappEnviado?: string | null
