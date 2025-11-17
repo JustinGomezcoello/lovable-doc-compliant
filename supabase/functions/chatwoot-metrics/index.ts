@@ -38,23 +38,49 @@ serve(async (req) => {
     const metrics: any = {}
 
     for (const label of labels) {
-      const url = `${CHATWOOT_BASE_URL}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/conversations?labels[]=${label}&status=all&page=1`
+      // Fetch all pages of conversations for this label
+      let allConversations: any[] = []
+      let currentPage = 1
+      let hasMorePages = true
       
-      console.log(`Fetching: ${url}`)
-
-      const response = await fetch(url, {
-        headers: {
-          'api_access_token': CHATWOOT_API_TOKEN,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        const conversations = data.data?.payload || []
+      while (hasMorePages) {
+        const url = `${CHATWOOT_BASE_URL}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/conversations?labels[]=${label}&status=all&page=${currentPage}`
         
-        // Filter conversations by date if date range is provided
-        let filteredConversations = conversations
+        console.log(`Fetching page ${currentPage} for ${label}: ${url}`)
+
+        const response = await fetch(url, {
+          headers: {
+            'api_access_token': CHATWOOT_API_TOKEN,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          const conversations = data.data?.payload || []
+          
+          if (conversations.length === 0) {
+            hasMorePages = false
+          } else {
+            allConversations = allConversations.concat(conversations)
+            currentPage++
+            
+            // Limit to 10 pages to prevent infinite loops
+            if (currentPage > 10) {
+              hasMorePages = false
+            }
+          }
+        } else {
+          const errorText = await response.text()
+          console.error(`Error fetching page ${currentPage} for label ${label}:`, errorText)
+          hasMorePages = false
+        }
+      }
+      
+      console.log(`Total conversations fetched for ${label}: ${allConversations.length}`)
+        
+      // Filter conversations by date if date range is provided
+      let filteredConversations = allConversations
         
         if (type === 'day' && date) {
           const targetDate = new Date(date)
@@ -64,12 +90,12 @@ serve(async (req) => {
           targetDate.setHours(23, 59, 59, 999)
           const until = Math.floor(targetDate.getTime() / 1000)
           
-          filteredConversations = conversations.filter((conv: any) => {
+          filteredConversations = allConversations.filter((conv: any) => {
             const createdAt = conv.created_at || 0
             return createdAt >= since && createdAt <= until
           })
           
-          console.log(`Day filter for ${label}: ${filteredConversations.length} of ${conversations.length} conversations`)
+          console.log(`Day filter for ${label}: ${filteredConversations.length} of ${allConversations.length} conversations`)
         } else if (type === 'range' && dateFrom && dateTo) {
           const fromDate = new Date(dateFrom + 'T00:00:00')
           const since = Math.floor(fromDate.getTime() / 1000)
@@ -77,21 +103,16 @@ serve(async (req) => {
           const toDate = new Date(dateTo + 'T23:59:59')
           const until = Math.floor(toDate.getTime() / 1000)
           
-          filteredConversations = conversations.filter((conv: any) => {
+          filteredConversations = allConversations.filter((conv: any) => {
             const createdAt = conv.created_at || 0
             return createdAt >= since && createdAt <= until
           })
           
-          console.log(`Range filter for ${label}: ${filteredConversations.length} of ${conversations.length} conversations (${dateFrom} to ${dateTo})`)
+          console.log(`Range filter for ${label}: ${filteredConversations.length} of ${allConversations.length} conversations (${dateFrom} to ${dateTo})`)
         }
         
         metrics[label] = filteredConversations.length
         console.log(`Label ${label}: ${filteredConversations.length} conversations`)
-      } else {
-        const errorText = await response.text()
-        console.error(`Error fetching label ${label}:`, errorText)
-        metrics[label] = 0
-      }
     }
 
     return new Response(
