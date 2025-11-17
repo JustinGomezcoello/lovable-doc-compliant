@@ -109,7 +109,11 @@ const DayByDayTab = () => {
           .select("count_day, cedulas, fecha")
           .eq("fecha", dateStr);
         
-        if (!error && data) {
+        if (error) {
+          console.error(`Error fetching ${table}:`, error);
+        }
+        
+        if (data && data.length > 0) {
           const sent = data.reduce((sum: number, row: any) => sum + (row.count_day || 0), 0);
           totalSent += sent;
           
@@ -123,6 +127,13 @@ const DayByDayTab = () => {
             name: table.replace("point_", "").replace(/_/g, " "),
             sent,
             cost: (sent * 0.014).toFixed(2)
+          });
+        } else {
+          // Add campaign with 0 values if no data
+          campaignDetails.push({
+            name: table.replace("point_", "").replace(/_/g, " "),
+            sent: 0,
+            cost: "0.00"
           });
         }
       }

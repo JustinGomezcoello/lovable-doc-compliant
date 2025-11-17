@@ -28,7 +28,7 @@ const GeneralTab = () => {
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("chatwoot-metrics", {
         body: { 
-          type: "general",
+          type: "day",
           date: selectedDate ? format(selectedDate, "yyyy-MM-dd") : undefined
         }
       });
