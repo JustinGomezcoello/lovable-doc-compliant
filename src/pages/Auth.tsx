@@ -30,22 +30,39 @@ const Auth = () => {
 
     try {
       if (username.trim() === "point" && password === "point") {
-        // Autenticar también con Supabase para pasar RLS
+        // 1) Intentar iniciar sesión con Supabase
         const { data, error } = await supabase.auth.signInWithPassword({
           email: "point@point.com",
           password: "point",
         });
 
+        // 2) Si falla, crear la cuenta automáticamente y pedir confirmar (o desactivar confirmación)
         if (error || !data.session) {
-          toast({
-            variant: "destructive",
-            title: "No se pudo iniciar sesión en Supabase",
-            description: "Verifica que el usuario point@point.com exista y la contraseña sea correcta.",
+          const redirectUrl = `${window.location.origin}/dashboard`;
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: "point@point.com",
+            password: "point",
+            options: { emailRedirectTo: redirectUrl },
           });
-          return;
+
+          if (signUpError) {
+            toast({
+              variant: "destructive",
+              title: "No se pudo crear/iniciar sesión",
+              description: signUpError.message || "Revisa configuración de confirmación de correo en Supabase.",
+            });
+            return;
+          }
+
+          if (!signUpData.session) {
+            toast({
+              title: "Usuario creado",
+              description: "Confirma el correo o desactiva 'Confirm email' en Supabase para iniciar sesión al instante.",
+            });
+            return;
+          }
         }
 
-        sessionStorage.setItem("authenticated", "true");
         toast({ title: "¡Bienvenido!", description: "Inicio de sesión exitoso" });
         navigate("/dashboard");
       } else {
