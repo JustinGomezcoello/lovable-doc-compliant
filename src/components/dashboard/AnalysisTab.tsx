@@ -66,9 +66,18 @@ const AnalysisTab = () => {
         // For human messages, content is directly the text
         return msg.content;
       } else if (msg.type === "ai") {
-        // For AI messages, content is a JSON string with an "output" field
-        const parsed = JSON.parse(msg.content);
-        return parsed.output || msg.content;
+        // For AI messages, content might be a string or already an object
+        if (typeof msg.content === 'string') {
+          try {
+            const parsed = JSON.parse(msg.content);
+            return parsed.output || msg.content;
+          } catch {
+            return msg.content;
+          }
+        } else if (typeof msg.content === 'object' && msg.content.output) {
+          return msg.content.output;
+        }
+        return msg.content;
       }
       return msg.content;
     } catch {
@@ -206,39 +215,41 @@ const AnalysisTab = () => {
                 </div>
               ) : (
                 <ScrollArea className="h-[600px] pr-4">
-                  <div className="space-y-4">
+                  <div className="space-y-3 py-2">
                     {customerData.conversations.map((msg: any, idx: number) => {
                       const messageText = parseMessage(msg.message);
                       const isHuman = msg.message.type === "human";
                       const timestamp = new Date(msg.created_at).toLocaleString('es-ES', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit'
                       });
+
+                      // Skip if message is empty
+                      if (!messageText || messageText.trim() === "") return null;
 
                       return (
                         <div
                           key={msg.id || idx}
                           className={`flex ${isHuman ? 'justify-start' : 'justify-end'}`}
                         >
-                          <div
-                            className={`max-w-[70%] rounded-lg p-4 ${
-                              isHuman
-                                ? 'bg-muted text-foreground'
-                                : 'bg-primary text-primary-foreground'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant={isHuman ? "secondary" : "default"} className="text-xs">
-                                {isHuman ? "Cliente" : "Bot"}
-                              </Badge>
-                              <span className="text-xs opacity-70">{timestamp}</span>
+                          <div className={`flex flex-col ${isHuman ? 'items-start' : 'items-end'} max-w-[75%]`}>
+                            <div className="text-xs text-muted-foreground mb-1 px-2">
+                              {isHuman ? customerData.customer.Cliente : "Bot POINT"}
                             </div>
-                            <p className="text-sm whitespace-pre-wrap break-words">
-                              {messageText}
-                            </p>
+                            <div
+                              className={`rounded-2xl px-4 py-2.5 ${
+                                isHuman
+                                  ? 'bg-muted text-foreground rounded-tl-none'
+                                  : 'bg-primary text-primary-foreground rounded-tr-none'
+                              }`}
+                            >
+                              <p className="text-sm whitespace-pre-wrap break-words">
+                                {messageText}
+                              </p>
+                              <div className={`text-[10px] mt-1 ${isHuman ? 'text-muted-foreground' : 'text-primary-foreground/70'}`}>
+                                {timestamp}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       );
