@@ -13,25 +13,15 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("general");
 
   useEffect(() => {
-    // Check authentication with Supabase
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        navigate("/login");
-      }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        navigate("/login");
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    // Check authentication with sessionStorage
+    const isAuthenticated = sessionStorage.getItem("authenticated");
+    if (!isAuthenticated) {
+      navigate("/login");
+    }
   }, [navigate]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    sessionStorage.removeItem("authenticated");
     navigate("/login");
   };
 
