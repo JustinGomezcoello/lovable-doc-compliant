@@ -38,34 +38,8 @@ serve(async (req) => {
     const metrics: any = {}
 
     for (const label of labels) {
-      let url = `${CHATWOOT_BASE_URL}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/conversations?labels[]=${label}&status=all&page=1`
+      const url = `${CHATWOOT_BASE_URL}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/conversations?labels[]=${label}&status=all&page=1`
       
-      // Add date filters for day-by-day view
-      if (type === 'day' && date) {
-        const targetDate = new Date(date)
-        targetDate.setHours(0, 0, 0, 0)
-        const since = Math.floor(targetDate.getTime() / 1000)
-        
-        targetDate.setHours(23, 59, 59, 999)
-        const until = Math.floor(targetDate.getTime() / 1000)
-        
-        url += `&since=${since}&until=${until}`
-        console.log(`Day filter for ${label}: since=${since}, until=${until}`)
-      }
-
-      // Add date range filters for general view
-      if (type === 'range' && dateFrom && dateTo) {
-        // Parse dates as UTC and send to Chatwoot API
-        const fromDate = new Date(dateFrom + 'T00:00:00')
-        const since = Math.floor(fromDate.getTime() / 1000)
-        
-        const toDate = new Date(dateTo + 'T23:59:59')
-        const until = Math.floor(toDate.getTime() / 1000)
-        
-        url += `&since=${since}&until=${until}`
-        console.log(`Range filter for ${label}: since=${since} (${dateFrom}), until=${until} (${dateTo})`)
-      }
-
       console.log(`Fetching: ${url}`)
 
       const response = await fetch(url, {
@@ -77,9 +51,42 @@ serve(async (req) => {
 
       if (response.ok) {
         const data = await response.json()
-        const count = data.data?.meta?.all_count || 0
-        metrics[label] = count
-        console.log(`Label ${label}: ${count} conversations`)
+        const conversations = data.data?.payload || []
+        
+        // Filter conversations by date if date range is provided
+        let filteredConversations = conversations
+        
+        if (type === 'day' && date) {
+          const targetDate = new Date(date)
+          targetDate.setHours(0, 0, 0, 0)
+          const since = Math.floor(targetDate.getTime() / 1000)
+          
+          targetDate.setHours(23, 59, 59, 999)
+          const until = Math.floor(targetDate.getTime() / 1000)
+          
+          filteredConversations = conversations.filter((conv: any) => {
+            const createdAt = conv.created_at || 0
+            return createdAt >= since && createdAt <= until
+          })
+          
+          console.log(`Day filter for ${label}: ${filteredConversations.length} of ${conversations.length} conversations`)
+        } else if (type === 'range' && dateFrom && dateTo) {
+          const fromDate = new Date(dateFrom + 'T00:00:00')
+          const since = Math.floor(fromDate.getTime() / 1000)
+          
+          const toDate = new Date(dateTo + 'T23:59:59')
+          const until = Math.floor(toDate.getTime() / 1000)
+          
+          filteredConversations = conversations.filter((conv: any) => {
+            const createdAt = conv.created_at || 0
+            return createdAt >= since && createdAt <= until
+          })
+          
+          console.log(`Range filter for ${label}: ${filteredConversations.length} of ${conversations.length} conversations (${dateFrom} to ${dateTo})`)
+        }
+        
+        metrics[label] = filteredConversations.length
+        console.log(`Label ${label}: ${filteredConversations.length} conversations`)
       } else {
         const errorText = await response.text()
         console.error(`Error fetching label ${label}:`, errorText)
