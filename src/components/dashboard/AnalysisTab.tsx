@@ -18,6 +18,8 @@ const AnalysisTab = () => {
     queryFn: async () => {
       if (!searchTerm) return null;
 
+      console.log("🔍 Searching for:", searchTerm);
+
       // Search in POINT_Competencia
       const { data, error } = await supabase
         .from("POINT_Competencia")
@@ -27,15 +29,26 @@ const AnalysisTab = () => {
         .maybeSingle();
 
       if (error) {
-        console.error("Error searching customer:", error);
+        console.error("❌ Error searching customer:", error);
         return null;
       }
 
-      if (!data) return null;
+      if (!data) {
+        console.log("⚠️ No customer found");
+        return null;
+      }
+
+      console.log("✅ Customer found:", {
+        idCompra: data.idCompra,
+        Cliente: data.Cliente,
+        conversation_id: data.conversation_id
+      });
 
       // Get conversation history if conversation_id exists
       let conversations = null;
       if (data.conversation_id && data.conversation_id > 0) {
+        console.log("🔍 Fetching chat history for session_id:", data.conversation_id);
+        
         const { data: chatData, error: chatError } = await supabase
           .from("n8n_chat_histories")
           .select("*")
@@ -43,10 +56,14 @@ const AnalysisTab = () => {
           .order("created_at", { ascending: true });
         
         if (chatError) {
-          console.error("Error fetching chat history:", chatError);
+          console.error("❌ Error fetching chat history:", chatError);
         } else {
+          console.log("✅ Chat messages found:", chatData?.length || 0);
+          console.log("📝 First message sample:", chatData?.[0]);
           conversations = chatData;
         }
+      } else {
+        console.log("⚠️ No conversation_id found or is 0");
       }
 
       return { customer: data, conversations };
