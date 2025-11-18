@@ -12,7 +12,9 @@ import {
   CheckCircle,
   CalendarIcon,
   AlertCircle,
-  CreditCard
+  CreditCard,
+  Banknote,
+  UserX
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar } from "@/components/ui/calendar";
@@ -154,55 +156,67 @@ const GeneralTab = () => {
             title="Comprobantes Enviados"
             value={chatwootMetrics?.comprobante_enviado?.toString() || "0"}
             icon={FileText}
-            description="Conversaciones etiquetadas: comprobante_enviado"
+            description="Cliente mandó el comprobante de pago"
           />
           <MetricCard
             title="Facturas Enviadas"
             value={chatwootMetrics?.factura_enviada?.toString() || "0"}
             icon={FileText}
-            description="Conversaciones etiquetadas: factura_enviada"
+            description="Cliente indicó que ya pagó y mandó factura de pago"
           />
           <MetricCard
             title="Consultas Saldo"
             value={chatwootMetrics?.consulto_saldo?.toString() || "0"}
             icon={Search}
-            description="Conversaciones etiquetadas: consulto_saldo"
+            description="Cliente realizó consulta de sus créditos para saber qué valores tiene pendientes"
           />
           <MetricCard
             title="Pagado"
             value={chatwootMetrics?.pagado?.toString() || "0"}
             icon={CreditCard}
-            description="Conversaciones etiquetadas: pagado"
+            description="Se da a conocer que cliente ya había pagado y no tiene nada pendiente por pagar"
           />
           <MetricCard
             title="Soporte"
             value={chatwootMetrics?.soporte?.toString() || "0"}
             icon={Headphones}
-            description="Conversaciones etiquetadas: soporte"
+            description="Usuario pidió contacto humano directo - que quiere hablar con alguien explícitamente"
           />
           <MetricCard
             title="Cobrador"
             value={chatwootMetrics?.cobrador?.toString() || "0"}
             icon={UserCheck}
-            description="Conversaciones etiquetadas: cobrador"
+            description="Cliente solicita que se le envíe un cobrador"
           />
           <MetricCard
             title="Devolución Producto"
             value={chatwootMetrics?.devolucion_producto?.toString() || "0"}
             icon={PackageX}
-            description="Conversaciones etiquetadas: devolucion_producto"
+            description="Cliente solicita devolver el producto adquirido"
           />
           <MetricCard
             title="Servicio Técnico"
             value={chatwootMetrics?.servicio_tecnico?.toString() || "0"}
             icon={Wrench}
-            description="Conversaciones etiquetadas: servicio_tecnico"
+            description="Cliente desea hablar con soporte técnico"
+          />
+          <MetricCard
+            title="Consulta Datos Transferencia"
+            value={chatwootMetrics?.consulto_datos_transferencia?.toString() || "0"}
+            icon={Banknote}
+            description="Cliente solicita datos de cuentas bancarias"
+          />
+          <MetricCard
+            title="No Registrado"
+            value={chatwootMetrics?.no_registrado?.toString() || "0"}
+            icon={UserX}
+            description="Cliente no encontrado en base de datos de POINT"
           />
           <MetricCard
             title="Casos Resueltos"
             value={chatwootMetrics?.resuelto?.toString() || "0"}
             icon={CheckCircle}
-            description="Conversaciones etiquetadas: resuelto"
+            description="Casos resueltos de soporte, servicio técnico, devolución producto y cobrador"
           />
         </div>
       </div>

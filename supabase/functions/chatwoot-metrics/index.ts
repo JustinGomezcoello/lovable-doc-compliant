@@ -288,7 +288,9 @@ serve(async (req) => {
       'servicio_tecnico',
       'consulto_saldo',
       'resuelto',
-      'pagado'
+      'pagado',
+      'consulto_datos_transferencia',
+      'no_registrado'
     ]
 
     const metrics: Record<string, number> = {}

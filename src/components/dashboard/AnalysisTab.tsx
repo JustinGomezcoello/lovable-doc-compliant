@@ -12,24 +12,54 @@ import LoadingState from "@/components/ui/loading-state";
 
 const AnalysisTab = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
-
-  // Query para obtener todos los clientes con conversaciones
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);  // Query para obtener todos los clientes con conversaciones
   const { data: allCustomers, isLoading: isLoadingAll } = useQuery({
-    queryKey: ["all-customers-with-conversations"],
+    queryKey: ["all-customers-with-conversations-v3"], // Cambiar key para forzar refetch
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("POINT_Competencia")
-        .select("idCompra, Cliente, Cedula, Celular, conversation_id, ComprobanteEnviado, Articulo")
-        .gt("conversation_id", 0)
-        .order("Cliente", { ascending: true });
+      console.log("🔍 Cargando TODOS los clientes con conversaciones...");
+      
+      // Obtener TODOS los registros usando paginación manual
+      let allData: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMoreData = true;
+      
+      while (hasMoreData) {
+        console.log(`📖 Obteniendo página ${page + 1}...`);
+        
+        const { data, error } = await supabase
+          .from("POINT_Competencia")
+          .select("idCompra, Cliente, Cedula, Celular, conversation_id, ComprobanteEnviado, Articulo")
+          .not("conversation_id", "is", null)
+          .neq("conversation_id", 0)
+          .range(page * pageSize, (page + 1) * pageSize - 1)
+          .order("Cliente", { ascending: true });
 
-      if (error) {
-        console.error("❌ Error loading customers:", error);
-        return [];
+        if (error) {
+          console.error("❌ Error loading customers:", error);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          console.log(`✅ Página ${page + 1}: ${data.length} clientes obtenidos`);
+          console.log(`📈 Total acumulado: ${allData.length} clientes`);
+          
+          // Si obtuvimos menos registros que el pageSize, es la última página
+          if (data.length < pageSize) {
+            hasMoreData = false;
+          } else {
+            page++;
+          }
+        } else {
+          hasMoreData = false;
+        }
       }
 
-      return data || [];
+      console.log(`🎯 TOTAL FINAL de clientes: ${allData.length}`);
+      console.log(`✅ Esperados: 1155 clientes con conversation_id válido`);
+
+      return allData || [];
     }
   });
 

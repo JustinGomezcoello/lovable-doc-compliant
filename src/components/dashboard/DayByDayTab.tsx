@@ -50,35 +50,45 @@ const DayByDayTab = () => {
           // Collect all cedulas from this date range
           data.forEach((row: any) => {
             if (row.cedulas && Array.isArray(row.cedulas)) {
-              allCedulas = [...allCedulas, ...row.cedulas];
+              allCedulas = [...allCedulas, ...row.cedulas.map((c: any) => String(c))];
             }
           });
         }
       }
 
-      // Get response data from POINT_Competencia
+      // Deduplicate cedulas to get total unique contacts
+      const uniqueCedulas = Array.from(new Set(allCedulas)).filter(c => c && c.trim() !== "");
+      const totalContacts = uniqueCedulas.length;
+
+      // Get response data from POINT_Competencia (based on unique cedulas)
       let responded = 0;
-      if (allCedulas.length > 0) {
-        // Convert cedulas to numbers for the query
-        const cedulasAsNumbers = allCedulas.map(c => parseInt(c)).filter(n => !isNaN(n));
+      if (uniqueCedulas.length > 0) {
+        // Convert cedulas to numbers for the query where possible
+        const cedulasAsNumbers = uniqueCedulas.map(c => {
+          const n = parseInt(String(c).replace(/\D/g, ''));
+          return isNaN(n) ? null : n;
+        }).filter((n): n is number => n !== null);
         
         if (cedulasAsNumbers.length > 0) {
           const { data: responseData } = await supabase
             .from("POINT_Competencia")
-            .select("Cedula, conversation_id")
+            .select("Cedula")
             .in("Cedula", cedulasAsNumbers);
           
           if (responseData) {
-            responded = responseData.filter(r => r.conversation_id && r.conversation_id > 0).length;
+            // Count unique Cedula matches (some DB rows could duplicate)
+            const matched = Array.from(new Set(responseData.map((r: any) => String(r.Cedula))));
+            responded = matched.length;
           }
         }
       }
 
-      const notResponded = totalSent - responded;
-      const responseRate = totalSent > 0 ? ((responded / totalSent) * 100).toFixed(1) : "0";
+      const notResponded = Math.max(0, totalContacts - responded);
+      const responseRate = totalContacts > 0 ? ((responded / totalContacts) * 100).toFixed(1) : "0";
 
       return {
         totalSent,
+        totalContacts,
         totalCost: (totalSent * 0.014).toFixed(2),
         responded,
         notResponded,
@@ -120,7 +130,7 @@ const DayByDayTab = () => {
           
           data.forEach((row: any) => {
             if (row.cedulas && Array.isArray(row.cedulas)) {
-              allCedulas = [...allCedulas, ...row.cedulas];
+              allCedulas = [...allCedulas, ...row.cedulas.map((c: any) => String(c))];
             }
           });
           
@@ -139,28 +149,37 @@ const DayByDayTab = () => {
         }
       }
 
-      // Calculate responses for all campaigns combined
+      // Deduplicate cedulas for campaign day
+      const uniqueCedulas = Array.from(new Set(allCedulas)).filter(c => c && c.trim() !== "");
+      const totalContacts = uniqueCedulas.length;
+
+      // Calculate responses for all campaigns combined (based on unique cedulas)
       let responded = 0;
-      if (allCedulas.length > 0) {
-        const cedulasAsNumbers = allCedulas.map(c => parseInt(c)).filter(n => !isNaN(n));
+      if (uniqueCedulas.length > 0) {
+        const cedulasAsNumbers = uniqueCedulas.map(c => {
+          const n = parseInt(String(c).replace(/\D/g, ''));
+          return isNaN(n) ? null : n;
+        }).filter((n): n is number => n !== null);
         
         if (cedulasAsNumbers.length > 0) {
           const { data: responseData } = await supabase
             .from("POINT_Competencia")
-            .select("Cedula, conversation_id")
+            .select("Cedula")
             .in("Cedula", cedulasAsNumbers);
           
           if (responseData) {
-            responded = responseData.filter(r => r.conversation_id && r.conversation_id > 0).length;
+            const matched = Array.from(new Set(responseData.map((r: any) => String(r.Cedula))));
+            responded = matched.length;
           }
         }
       }
 
-      const notResponded = totalSent - responded;
+      const notResponded = Math.max(0, totalContacts - responded);
 
       return {
         campaigns: campaignDetails,
         totalSent,
+        totalContacts,
         responded,
         notResponded
       };
@@ -245,7 +264,7 @@ const DayByDayTab = () => {
           />
           <MetricCard
             title="Total Contactados"
-            value={dayMetrics?.totalSent?.toLocaleString() || "0"}
+            value={dayMetrics?.totalContacts?.toLocaleString() || "0"}
             icon={Users}
           />
         </div>
