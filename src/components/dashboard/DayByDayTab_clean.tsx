@@ -1,3 +1,4 @@
+// filepath: d:\trabajo u\lovable-doc-compliant\src\components\dashboard\DayByDayTab.tsx
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
 import { format, eachDayOfInterval } from "date-fns";
 import MetricCard from "./MetricCard";
-import { Send, DollarSign, UserCheck, UserX } from "lucide-react";
+import { Send, DollarSign, Users, UserCheck, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import LoadingState from "@/components/ui/loading-state";
 
@@ -38,7 +39,7 @@ const DayByDayTab = () => {
 
   // Métricas consolidadas por rango de fechas
   const { data: dayMetrics, isLoading } = useQuery({
-    queryKey: ["day-metrics-final-v2", startDate, endDate],
+    queryKey: ["day-metrics-with-contactados-v6", startDate, endDate],
     queryFn: async () => {
       console.log("🔍 Obteniendo métricas consolidadas para:", {
         fechaInicio: format(startDate, "yyyy-MM-dd"),
@@ -69,7 +70,7 @@ const DayByDayTab = () => {
             }
             
             if (data && data.length > 0) {
-              // Sum up count_day for this table on this day - THIS IS WhatsApp Enviados
+              // Sum up count_day for this table on this day
               const dayTotal = data.reduce((sum, record) => sum + (record.count_day || 0), 0);
               totalSent += dayTotal;
               
@@ -88,10 +89,9 @@ const DayByDayTab = () => {
         }
       }
       
-      // Get unique cedulas and calculate responses based on POINT_Competencia
+      // Get unique cedulas and calculate responses
       const uniqueCedulas = Array.from(new Set(allCedulas));
       let responded = 0;
-      let notResponded = 0;
       
       if (uniqueCedulas.length > 0) {
         const cedulasAsNumbers = uniqueCedulas.map(c => {
@@ -107,17 +107,11 @@ const DayByDayTab = () => {
               .in("Cedula", cedulasAsNumbers);
             
             if (responseData) {
-              // Count cedulas with conversation_id != null and != 0 (Respondieron)
+              // Count cedulas where conversation_id is not null and not 0
               const respondedCedulas = responseData.filter(r => 
                 r.conversation_id !== null && r.conversation_id !== 0
               );
-              responded = respondedCedulas.length;
-              
-              // Count cedulas with conversation_id = null or = 0 (No Respondieron)  
-              const notRespondedCedulas = responseData.filter(r => 
-                r.conversation_id === null || r.conversation_id === 0
-              );
-              notResponded = notRespondedCedulas.length;
+              responded = new Set(respondedCedulas.map(r => String(r.Cedula))).size;
             }
           } catch (err) {
             console.error("Error querying responses:", err);
@@ -125,27 +119,23 @@ const DayByDayTab = () => {
         }
       }
 
-      // Ensure the math: responded + notResponded should equal totalSent
-      // If not, adjust notResponded to make math work
-      const totalResponses = responded + notResponded;
-      if (totalResponses !== totalSent) {
-        console.warn(`⚠️ Ajustando matemática: ${responded} + ${notResponded} = ${totalResponses} ≠ ${totalSent}`);
-        notResponded = Math.max(0, totalSent - responded);
-      }
-      
-      const responseRate = totalSent > 0 ? ((responded / totalSent) * 100).toFixed(1) : "0.0";
+      const notResponded = Math.max(0, uniqueCedulas.length - responded);
+      const responseRate = uniqueCedulas.length > 0 ? ((responded / uniqueCedulas.length) * 100).toFixed(1) : "0.0";
+      const totalCost = (totalSent * 0.014).toFixed(2);
 
       console.log("📊 RESUMEN MÉTRICAS CONSOLIDADAS:", {
-        whatsappEnviados: totalSent, // Suma de count_day
+        totalSent,
+        totalContactados: uniqueCedulas.length,
         responded,
         notResponded,
         responseRate,
-        costoTotal: (totalSent * 0.014).toFixed(2)
+        totalCost
       });
 
       return {
-        totalSent: totalSent, // WhatsApp Enviados = suma de count_day
-        totalCost: (totalSent * 0.014).toFixed(2), // Costo = totalSent × $0.014
+        totalSent,
+        totalCost,
+        totalContactados: uniqueCedulas.length, // Total de cédulas únicas contactadas
         responded,
         notResponded,
         responseRate
@@ -157,7 +147,7 @@ const DayByDayTab = () => {
 
   // Detalle por campaña para día específico
   const { data: campaignDetails, isLoading: loadingCampaigns } = useQuery({
-    queryKey: ["campaign-details-final-v2", campaignFilterDate],
+    queryKey: ["campaign-details-individual-v5", campaignFilterDate],
     queryFn: async () => {
       const fechaConsulta = format(campaignFilterDate, "yyyy-MM-dd");
       
@@ -165,6 +155,7 @@ const DayByDayTab = () => {
 
       const campaigns = [];
       let totalSent = 0;
+      let totalCost = 0;
       let allCedulas: string[] = [];
 
       // Query each campaign table individually for the specific day
@@ -174,21 +165,24 @@ const DayByDayTab = () => {
             .from(tableName)
             .select("count_day, cedulas")
             .eq("fecha", fechaConsulta);
-            if (error) {
+          
+          if (error) {
             console.error(`Error querying ${tableName}:`, error);
+            // Add campaign with 0 values if error or no data
             campaigns.push({
               name: campaignNames[tableName] || tableName.toUpperCase(),
               sent: 0,
               cost: "0.00",
-              cedulas: [],
               responded: 0,
               notResponded: 0
             });
             continue;
           }
-            if (data && data.length > 0) {
+          
+          if (data && data.length > 0) {
             // Sum up count_day for this table
             const tableSent = data.reduce((sum, record) => sum + (record.count_day || 0), 0);
+            const tableCost = (tableSent * 0.014).toFixed(2);
             
             // Collect cedulas for this table
             const tableCedulas: string[] = [];
@@ -198,46 +192,76 @@ const DayByDayTab = () => {
               }
             });
             
-            // For now, we'll store the campaign with count_day info
-            // Response calculations will be done globally after collecting all cedulas
+            // Calculate responses for this table
+            const uniqueTableCedulas = Array.from(new Set(tableCedulas));
+            let tableResponded = 0;
+            
+            if (uniqueTableCedulas.length > 0) {
+              const cedulasAsNumbers = uniqueTableCedulas.map(c => {
+                const n = parseInt(c.replace(/\D/g, ''));
+                return isNaN(n) ? null : n;
+              }).filter((n): n is number => n !== null);
+              
+              if (cedulasAsNumbers.length > 0) {
+                try {
+                  const { data: responseData } = await supabase
+                    .from("POINT_Competencia")
+                    .select("Cedula, conversation_id")
+                    .in("Cedula", cedulasAsNumbers);
+                  
+                  if (responseData) {
+                    const respondedCedulas = responseData.filter(r => 
+                      r.conversation_id !== null && r.conversation_id !== 0
+                    );
+                    tableResponded = new Set(respondedCedulas.map(r => String(r.Cedula))).size;
+                  }
+                } catch (err) {
+                  console.error("Error querying responses for table:", tableName, err);
+                }
+              }
+            }
+            
+            const tableNotResponded = Math.max(0, uniqueTableCedulas.length - tableResponded);
+            
             campaigns.push({
               name: campaignNames[tableName] || tableName.toUpperCase(),
-              sent: tableSent, // count_day
-              cost: (tableSent * 0.014).toFixed(2),
-              cedulas: Array.from(new Set(tableCedulas)), // unique cedulas for this campaign
-              responded: 0, // Will be calculated after we get all responses
-              notResponded: 0 // Will be calculated after we get all responses
+              sent: tableSent,
+              cost: tableCost,
+              responded: tableResponded,
+              notResponded: tableNotResponded
             });
             
             totalSent += tableSent;
+            totalCost += tableSent * 0.014;
             allCedulas.push(...tableCedulas);
             
-            console.log(`✅ ${tableName} - ${fechaConsulta}: ${tableSent} enviados, ${tableCedulas.length} cédulas`);          } else {
+            console.log(`✅ ${tableName} - ${fechaConsulta}: ${tableSent} enviados, ${tableResponded} respondieron`);
+          } else {
+            // No data for this table on this date
             campaigns.push({
               name: campaignNames[tableName] || tableName.toUpperCase(),
               sent: 0,
               cost: "0.00",
-              cedulas: [],
               responded: 0,
               notResponded: 0
             });
             console.log(`⚠️ ${tableName} - ${fechaConsulta}: Sin datos`);
-          }        } catch (err) {
+          }
+        } catch (err) {
           console.error(`Error accessing table ${tableName}:`, err);
           campaigns.push({
             name: campaignNames[tableName] || tableName.toUpperCase(),
             sent: 0,
             cost: "0.00",
-            cedulas: [],
             responded: 0,
             notResponded: 0
           });
         }
       }
 
-      // Get global response data for all unique cedulas
+      // Calculate overall totals for the day
       const uniqueCedulas = Array.from(new Set(allCedulas));
-      let responseMap = new Map(); // Cedula -> conversation_id status
+      let overallResponded = 0;
       
       if (uniqueCedulas.length > 0) {
         const cedulasAsNumbers = uniqueCedulas.map(c => {
@@ -253,68 +277,30 @@ const DayByDayTab = () => {
               .in("Cedula", cedulasAsNumbers);
             
             if (responseData) {
-              // Create a map of cedula to response status
-              responseData.forEach(r => {
-                responseMap.set(r.Cedula, {
-                  responded: r.conversation_id !== null && r.conversation_id !== 0,
-                  conversation_id: r.conversation_id
-                });
-              });
+              const respondedCedulas = responseData.filter(r => 
+                r.conversation_id !== null && r.conversation_id !== 0
+              );
+              overallResponded = new Set(respondedCedulas.map(r => String(r.Cedula))).size;
             }
           } catch (err) {
-            console.error("Error querying response data:", err);
+            console.error("Error querying overall responses:", err);
           }
         }
       }
 
-      // Now calculate responses for each campaign based on global response data
-      campaigns.forEach((campaign: any) => {
-        let campaignResponded = 0;
-        let campaignNotResponded = 0;
-        
-        campaign.cedulas.forEach((cedula: string) => {
-          const cedulaNum = parseInt(cedula.replace(/\D/g, ''));
-          if (!isNaN(cedulaNum)) {
-            const responseStatus = responseMap.get(cedulaNum);
-            if (responseStatus?.responded) {
-              campaignResponded++;
-            } else {
-              campaignNotResponded++;
-            }
-          }
-        });
-        
-        // Ensure math for this campaign: responded + notResponded should equal count_day
-        // Note: count_day is total messages sent, not unique cedulas
-        // We need to distribute responses proportionally if needed
-        const campaignTotal = campaignResponded + campaignNotResponded;
-        if (campaignTotal !== campaign.sent && campaign.sent > 0) {
-          // If the total unique cedulas doesn't match count_day, we need to scale
-          const scaleFactor = campaign.sent / Math.max(campaignTotal, 1);
-          campaignResponded = Math.round(campaignResponded * scaleFactor);
-          campaignNotResponded = campaign.sent - campaignResponded;
-        }
-        
-        campaign.responded = campaignResponded;
-        campaign.notResponded = campaignNotResponded;
-        
-        // Remove cedulas from the final object (only needed for calculation)
-        delete campaign.cedulas;
-      });      // Calculate overall totals for the day by summing up campaign totals
-      const overallResponded = campaigns.reduce((sum: number, campaign: any) => sum + campaign.responded, 0);
-      const overallNotResponded = campaigns.reduce((sum: number, campaign: any) => sum + campaign.notResponded, 0);
+      const overallNotResponded = Math.max(0, uniqueCedulas.length - overallResponded);
 
       console.log("📊 RESUMEN DÍA ESPECÍFICO:", {
-        whatsappEnviados: totalSent,
-        totalCost: (totalSent * 0.014).toFixed(2),
+        totalSent,
+        totalCost: totalCost.toFixed(2),
         overallResponded,
         overallNotResponded
       });
 
       return {
         campaigns,
-        totalSent: totalSent,
-        totalCost: (totalSent * 0.014).toFixed(2),
+        totalSent,
+        totalCost: totalCost.toFixed(2),
         responded: overallResponded,
         notResponded: overallNotResponded
       };
@@ -378,24 +364,30 @@ const DayByDayTab = () => {
         />
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
               title="WhatsApp Enviados"
               value={dayMetrics?.totalSent?.toLocaleString() || "0"}
               icon={Send}
-              description={`Suma count_day: ${format(startDate, "dd/MM/yyyy")} - ${format(endDate, "dd/MM/yyyy")}`}
+              description={`Total mensajes: ${format(startDate, "dd/MM/yyyy")} - ${format(endDate, "dd/MM/yyyy")}`}
             />
             <MetricCard
               title="Costo Total"
               value={`$${dayMetrics?.totalCost || "0.00"}`}
               icon={DollarSign}
-              description="WhatsApp Enviados × $0.014"
+              description="($0.014 por mensaje)"
+            />
+            <MetricCard
+              title="Total Contactados"
+              value={dayMetrics?.totalContactados?.toLocaleString() || "0"}
+              icon={Users}
+              description="Cédulas únicas contactadas"
             />
             <MetricCard
               title="Respondieron"
               value={dayMetrics?.responded?.toLocaleString() || "0"}
               icon={UserCheck}
-              description={`${dayMetrics?.responseRate || "0"}% del total enviados`}
+              description={`${dayMetrics?.responseRate || "0"}% del total contactados`}
             />
           </div>
 
@@ -405,14 +397,14 @@ const DayByDayTab = () => {
                 title="No Respondieron"
                 value={dayMetrics?.notResponded?.toLocaleString() || "0"}
                 icon={UserX}
-                description="conversation_id = null o 0"
+                description="No tienen conversación activa"
               />
             </div>
             <div className="col-span-2 flex items-center justify-center p-4 bg-muted/30 rounded-lg">
               <div className="text-center">
-                <p className="text-sm text-muted-foreground">Verificación:</p>
+                <p className="text-sm text-muted-foreground">✓ Verificación:</p>
                 <p className="text-lg font-semibold">
-                  Respondieron ({dayMetrics?.responded || 0}) + No Respondieron ({dayMetrics?.notResponded || 0}) = WhatsApp Enviados ({dayMetrics?.totalSent || 0})
+                  Respondieron ({dayMetrics?.responded || 0}) + No Respondieron ({dayMetrics?.notResponded || 0}) = Total Contactados ({dayMetrics?.totalContactados || 0})
                 </p>
               </div>
             </div>
@@ -453,7 +445,7 @@ const DayByDayTab = () => {
               {/* Summary metrics for the specific day */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
                 <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-1">WhatsApp Enviados</p>
+                  <p className="text-sm text-muted-foreground mb-1">Total Enviados</p>
                   <p className="text-2xl font-bold">{campaignDetails?.totalSent?.toLocaleString() || "0"}</p>
                 </div>
                 <div className="text-center">

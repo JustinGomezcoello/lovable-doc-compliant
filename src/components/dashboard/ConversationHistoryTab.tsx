@@ -169,8 +169,7 @@ const ConversationHistoryTab = () => {
       }
     },
     enabled: !!selectedRecord
-  });
-  // Filtrar registros según el término de búsqueda y filtro de comprobante
+  });  // Filtrar registros según el término de búsqueda y filtro de comprobante
   const filteredRecords = allRecords?.filter(record => {
     // Filtro de búsqueda por texto
     const searchMatches = !searchTerm.trim() || (() => {
@@ -198,7 +197,40 @@ const ConversationHistoryTab = () => {
     })();
     
     return searchMatches && comprobanteMatches;
-  });// Función para formatear texto con markdown (convertir **texto** y *texto* a <strong>texto</strong>)
+  });
+  // Deduplicar registros por cédula, manteniendo el más reciente (mayor idCompra)
+  const uniqueFilteredRecords = filteredRecords?.reduce((acc, current) => {
+    const existing = acc.find(record => record.Cedula === current.Cedula);
+    
+    if (!existing) {
+      acc.push(current);
+    } else {
+      // Si ya existe, mantener el que tenga mayor idCompra (más reciente)
+      if (current.idCompra > existing.idCompra) {
+        const index = acc.findIndex(record => record.Cedula === current.Cedula);
+        acc[index] = current;
+      }
+    }
+    
+    return acc;
+  }, [] as ConversationRecord[]);
+
+  // También deduplicar TODOS los registros para estadísticas correctas
+  const uniqueAllRecords = allRecords?.reduce((acc, current) => {
+    const existing = acc.find(record => record.Cedula === current.Cedula);
+    
+    if (!existing) {
+      acc.push(current);
+    } else {
+      // Si ya existe, mantener el que tenga mayor idCompra (más reciente)
+      if (current.idCompra > existing.idCompra) {
+        const index = acc.findIndex(record => record.Cedula === current.Cedula);
+        acc[index] = current;
+      }
+    }
+    
+    return acc;
+  }, [] as ConversationRecord[]);// Función para formatear texto con markdown (convertir **texto** y *texto* a <strong>texto</strong>)
   const formatMarkdownText = (text: string) => {
     // Primero convertir **texto** a <strong>texto</strong>
     let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -317,20 +349,19 @@ const ConversationHistoryTab = () => {
       ) : (
         <>
           {/* Lista de clientes */}
-          {filteredRecords && filteredRecords.length > 0 && !selectedRecord && (
-            <Card>              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span>Clientes con Conversaciones ({filteredRecords.length})</span>
-                  {allRecords && (
+          {uniqueFilteredRecords && uniqueFilteredRecords.length > 0 && !selectedRecord && (
+            <Card>              <CardHeader>                <CardTitle className="flex items-center justify-between">
+                  <span>Clientes con Conversaciones ({uniqueFilteredRecords.length})</span>
+                  {uniqueAllRecords && (
                     <div className="flex gap-2 text-sm">
                       <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                        Total: {allRecords.length}
+                        Total: {uniqueAllRecords.length}
                       </Badge>
                       <Badge variant="secondary" className="bg-green-100 text-green-700">
-                        Con comprobante: {allRecords.filter(r => r.ComprobanteEnviado === "SI").length}
+                        Con comprobante: {uniqueAllRecords.filter(r => r.ComprobanteEnviado === "SI").length}
                       </Badge>
                       <Badge variant="secondary" className="bg-orange-100 text-orange-700">
-                        Sin comprobante: {allRecords.filter(r => r.ComprobanteEnviado !== "SI").length}
+                        Sin comprobante: {uniqueAllRecords.filter(r => r.ComprobanteEnviado !== "SI").length}
                       </Badge>
                     </div>
                   )}
@@ -339,7 +370,7 @@ const ConversationHistoryTab = () => {
               <CardContent>
                 <ScrollArea className="h-[400px]">
                   <div className="space-y-2">
-                    {filteredRecords.map((record) => (
+                    {uniqueFilteredRecords.map((record) => (
                       <div
                         key={record.idCompra}
                         className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
@@ -541,7 +572,7 @@ const ConversationHistoryTab = () => {
             </div>
           )}
 
-          {!isLoadingAll && filteredRecords && filteredRecords.length === 0 && (
+          {!isLoadingAll && uniqueFilteredRecords && uniqueFilteredRecords.length === 0 && (
             <Card>
               <CardContent className="py-12">
                 <div className="text-center">
