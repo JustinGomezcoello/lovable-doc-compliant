@@ -351,37 +351,10 @@ const DayByDayTab = () => {
       {/* 🟥 EXPLICACIÓN COMPLETA DEL DASHBOARD - LAS 8 CAMPAÑAS */}
       <Card className="border-2 border-blue-200 bg-blue-50/50">
         <CardHeader>
-          <CardTitle className="text-lg text-blue-800">🟥 ¿Qué Significa Cada Dato del Dashboard? - Las 8 Campañas de WhatsApp</CardTitle>
+          <CardTitle className="text-lg text-blue-800">🟥 ¿Qué Significa Cada Dato del Dashboard? - Campañas de WhatsApp</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
-          <div className="bg-white rounded p-4 mb-4">
-            <h4 className="font-semibold text-blue-700 mb-2">📋 LAS 8 TABLAS DE CAMPAÑAS</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <p className="font-medium text-amber-700 mb-1">▣ MORA NEGATIVA (4 tablas)</p>
-                <ul className="list-disc ml-4 text-xs">
-                  <li>point_mora_neg5 → MORA NEGATIVA 5</li>
-                  <li>point_mora_neg3 → MORA NEGATIVA 3</li>
-                  <li>point_mora_neg2 → MORA NEGATIVA 2</li>
-                  <li>point_mora_neg1 → MORA NEGATIVA 1</li>
-                </ul>
-              </div>
-              <div>
-                <p className="font-medium text-green-700 mb-1">▣ MORA POSITIVA (2 tablas)</p>
-                <ul className="list-disc ml-4 text-xs">
-                  <li>point_mora_pos1 → MORA POSITIVA 1</li>
-                  <li>point_mora_pos4 → MORA POSITIVA 4</li>
-                </ul>
-              </div>
-              <div>
-                <p className="font-medium text-purple-700 mb-1">▣ OTROS FLUJOS (2 tablas)</p>
-                <ul className="list-disc ml-4 text-xs">
-                  <li>point_compromiso_pago → COMPROMISO DE PAGO</li>
-                  <li>point_reactivacion_cobro → REACTIVACIÓN COBRO</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white rounded p-3">
