@@ -5,199 +5,253 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { CalendarIcon } from "lucide-react";
+import {
+  CalendarIcon,
+  Send,
+  DollarSign,
+  UserCheck,
+  UserX,
+  Users,
+} from "lucide-react";
 import { format, eachDayOfInterval } from "date-fns";
 import MetricCard from "./MetricCard";
-import { Send, DollarSign, UserCheck, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import LoadingState from "@/components/ui/loading-state";
 
 const DayByDayTab = () => {
-  // Set default dates to today
+  // Fechas para la parte de “Métricas por Día” (rango)
   const [startDate, setStartDate] = useState<Date>(new Date());
   const [endDate, setEndDate] = useState<Date>(new Date());
+
+  // Fecha para la parte de “Detalle por Campaña - Día Específico”
   const [campaignFilterDate, setCampaignFilterDate] = useState<Date>(new Date());
 
-  // 🎯 LAS 8 TABLAS DE CAMPAÑAS DE WHATSAPP EN SUPABASE
+  // 8 tablas de campañas en Supabase
   const campaignTables = [
-    'point_mora_neg5',
-    'point_mora_neg3',
-    'point_mora_neg2',
-    'point_mora_neg1',
-    'point_mora_pos1',
-    'point_mora_pos4',
-    'point_compromiso_pago',
-    'point_reactivacion_cobro'
+    "point_mora_neg5",
+    "point_mora_neg3",
+    "point_mora_neg2",
+    "point_mora_neg1",
+    "point_mora_pos1",
+    "point_mora_pos4",
+    "point_compromiso_pago",
+    "point_reactivacion_cobro",
   ] as const;
 
-  // Nombres de las 8 campañas según la especificación
   const campaignNames: Record<string, string> = {
-    'point_mora_neg5': 'MORA NEGATIVA 5',
-    'point_mora_neg3': 'MORA NEGATIVA 3',
-    'point_mora_neg2': 'MORA NEGATIVA 2',
-    'point_mora_neg1': 'MORA NEGATIVA 1',
-    'point_mora_pos1': 'MORA POSITIVA 1',
-    'point_mora_pos4': 'MORA POSITIVA 4',
-    'point_compromiso_pago': 'COMPROMISO DE PAGO',
-    'point_reactivacion_cobro': 'REACTIVACIÓN COBRO'
+    point_mora_neg5: "MORA NEGATIVA 5",
+    point_mora_neg3: "MORA NEGATIVA 3",
+    point_mora_neg2: "MORA NEGATIVA 2",
+    point_mora_neg1: "MORA NEGATIVA 1",
+    point_mora_pos1: "MORA POSITIVA 1",
+    point_mora_pos4: "MORA POSITIVA 4",
+    point_compromiso_pago: "COMPROMISO DE PAGO",
+    point_reactivacion_cobro: "REACTIVACIÓN COBRO",
   };
 
-  // Cost per message constant
   const COSTO_POR_MENSAJE = 0.014;
 
-  // Métricas consolidadas por rango de fechas
-  const { data: dayMetrics, isLoading } = useQuery({
-    queryKey: ["day-metrics-final-v2", startDate, endDate],
-    queryFn: async () => {
-      console.log("🔍 Obteniendo métricas consolidadas para:", {
-        fechaInicio: format(startDate, "yyyy-MM-dd"),
-        fechaFin: format(endDate, "yyyy-MM-dd")
-      });
+  /**
+   * Construye un mapa:
+   *   número de cédula (sin formato) → [todas las variantes string que llegaron]
+   */
+  const construirMapaCedulas = (cedulas: string[]) => {
+    const numericToKeys = new Map<number, string[]>();
 
-      // Get all days in the range
+    cedulas.forEach((raw) => {
+      const cleaned = raw.replace(/\D/g, "");
+      if (!cleaned) return;
+
+      const num = parseInt(cleaned, 10);
+      if (isNaN(num)) return;
+
+      if (!numericToKeys.has(num)) {
+        numericToKeys.set(num, []);
+      }
+      numericToKeys.get(num)!.push(raw);
+    });
+
+    return numericToKeys;
+  };
+
+  /**
+   * Clasifica una lista de cédulas únicas en:
+   *  - true  → Respondió (conversation_id ≠ 0 y ≠ NULL)
+   *  - false → No Respondió (conversation_id = 0 o NULL, o sin registro)
+   *
+   * Hace la consulta a POINT_Competencia en chunks para no romper el .in()
+   * cuando hay muchas cédulas.
+   */
+  const clasificarCedulasPorRespuesta = async (
+    cedulas: string[]
+  ): Promise<Map<string, boolean>> => {
+    const responseMap = new Map<string, boolean>();
+
+    if (!cedulas.length) return responseMap;
+
+    // 1) Inicialmente, todas las cédulas se marcan como NO RESPONDIÓ
+    cedulas.forEach((cedula) => {
+      responseMap.set(cedula, false);
+    });
+
+    // 2) Construir mapa numérico → strings
+    const numericToKeys = construirMapaCedulas(cedulas);
+    const uniqueNumericCedulas = Array.from(numericToKeys.keys());
+
+    if (!uniqueNumericCedulas.length) return responseMap;
+
+    // 3) Hacer la consulta a Supabase en chunks
+    const CHUNK_SIZE = 500;
+
+    for (let i = 0; i < uniqueNumericCedulas.length; i += CHUNK_SIZE) {
+      const chunk = uniqueNumericCedulas.slice(i, i + CHUNK_SIZE);
+
+      try {
+        const { data: responseData, error } = await supabase
+          .from("POINT_Competencia")
+          .select("Cedula, conversation_id")
+          .in("Cedula", chunk);
+
+        if (error) {
+          console.error("❌ Error consultando POINT_Competencia (chunk):", error);
+          continue;
+        }
+
+        if (responseData && responseData.length) {
+          responseData.forEach((row: any) => {
+            const convId = row.conversation_id;
+            const cedulaNumber = Number(row.Cedula);
+
+            // Regla: conversation_id NOT NULL AND <> 0 → Respondió
+            if (convId !== null && convId !== 0) {
+              const keys = numericToKeys.get(cedulaNumber);
+              if (keys && keys.length) {
+                keys.forEach((key) => {
+                  responseMap.set(key, true);
+                });
+              }
+            }
+            // Si convId es 0 o NULL, no hacemos nada porque ya están en false.
+          });
+        }
+      } catch (err) {
+        console.error("❌ Excepción al consultar respuestas (chunk):", err);
+      }
+    }
+
+    return responseMap;
+  };
+
+  // ===================================================
+  //  MÉTRICAS POR DÍA (RANGO DE FECHAS - 8 TABLAS)
+  // ===================================================
+  const { data: dayMetrics, isLoading } = useQuery({
+    queryKey: ["day-metrics-final-v4", startDate, endDate],
+    queryFn: async () => {
+      const fechaInicio = format(startDate, "yyyy-MM-dd");
+      const fechaFin = format(endDate, "yyyy-MM-dd");
+
+      let totalSent = 0; // total de mensajes enviados en el rango
+      let allCedulas: string[] = []; // cédulas de todas las tablas en el rango
+
       const daysInRange = eachDayOfInterval({ start: startDate, end: endDate });
-      console.log("📅 Días en el rango:", daysInRange.map(d => format(d, "yyyy-MM-dd")));
-      
-      let totalSent = 0;
-      let allCedulas: string[] = [];
-        // Query each campaign table for each day in range
+
       for (const day of daysInRange) {
         const dayStr = format(day, "yyyy-MM-dd");
-        
+
         for (const tableName of campaignTables) {
           try {
-            // Primero verificamos qué fechas existen en la tabla
-            const { data: allDatesData, error: datesError } = await supabase
-              .from(tableName)
-              .select("fecha")
-              .limit(5);
-            
-            if (!datesError && allDatesData && allDatesData.length > 0) {
-              console.log(`📅 ${tableName} - Fechas disponibles (muestra):`, allDatesData.map(d => d.fecha));
-            }
-              // Consulta con filtro de fecha
             const { data, error } = await supabase
               .from(tableName)
               .select("count_day, cedulas, fecha")
               .gte("fecha", dayStr)
               .lte("fecha", dayStr);
-            
+
             if (error) {
-              console.error(`❌ Error querying ${tableName} for ${dayStr}:`, error);
+              console.error(`❌ Error en ${tableName} [${dayStr}]:`, error);
               continue;
             }
-            
-            console.log(`🔍 ${tableName} - ${dayStr}: Registros encontrados:`, data?.length || 0);
-            
+
             if (data && data.length > 0) {
-              // Sum up count_day for this table on this day - THIS IS WhatsApp Enviados
-              const dayTotal = data.reduce((sum, record) => sum + (record.count_day || 0), 0);
+              // Mensajes enviados en esa fecha / tabla
+              const dayTotal = data.reduce(
+                (sum, record) => sum + (record.count_day || 0),
+                0
+              );
               totalSent += dayTotal;
-              
-              // Collect all cedulas for response calculation
-              data.forEach(record => {
+
+              // Cédulas de esa fecha / tabla
+              data.forEach((record) => {
                 if (record.cedulas && Array.isArray(record.cedulas)) {
-                  allCedulas.push(...record.cedulas.map(c => String(c).trim()).filter(c => c));
+                  allCedulas.push(
+                    ...record.cedulas
+                      .map((c: any) => String(c).trim())
+                      .filter((c: string) => c)
+                  );
                 }
               });
-              
-              console.log(`✅ ${tableName} - ${dayStr}: ${dayTotal} enviados, ${data[0].cedulas?.length || 0} cédulas en primer registro`);
-            } else {
-              console.log(`⚠️ ${tableName} - ${dayStr}: Sin datos`);
             }
           } catch (err) {
-            console.error(`❌ Error accessing table ${tableName}:`, err);
+            console.error(`❌ Excepción en ${tableName}:`, err);
           }
         }
       }
-        // ✔ 3) Cédulas únicas globales - deduplicar todas las cédulas
-      const uniqueCedulas = Array.from(new Set(allCedulas));
-      const totalCedulasUnicas = uniqueCedulas.length;
-      
-      console.log(`📊 Total cédulas únicas globales: ${totalCedulasUnicas}`);
-      
-      // ✔ 4) Respondieron / No respondieron (global)
-      let responded = 0;
-      let notResponded = 0;
-      
-      if (uniqueCedulas.length > 0) {
-        const cedulasAsNumbers = uniqueCedulas.map(c => {
-          const n = parseInt(c.replace(/\D/g, ''));
-          return isNaN(n) ? null : n;
-        }).filter((n): n is number => n !== null);
-        
-        if (cedulasAsNumbers.length > 0) {
-          try {
-            const { data: responseData } = await supabase
-              .from("POINT_Competencia")
-              .select("Cedula, conversation_id")
-              .in("Cedula", cedulasAsNumbers);
-            
-            if (responseData) {
-              // Contar cédulas con conversation_id ≠ 0 y ≠ NULL (Respondieron)
-              const respondedSet = new Set(
-                responseData
-                  .filter(r => r.conversation_id !== null && r.conversation_id !== 0)
-                  .map(r => String(r.Cedula))
-              );
-              responded = respondedSet.size;
-              
-              // No respondieron = total cédulas únicas - respondieron
-              notResponded = totalCedulasUnicas - responded;
-              
-              console.log(`✅ Respondieron: ${responded}, No Respondieron: ${notResponded}`);
-            }
-          } catch (err) {
-            console.error("Error querying responses:", err);
-            notResponded = totalCedulasUnicas; // Si hay error, asumimos que nadie respondió
-          }
-        }
-      }
-      
-      // Tasa de respuesta basada en cédulas únicas
-      const responseRate = totalCedulasUnicas > 0 ? 
-        ((responded / totalCedulasUnicas) * 100).toFixed(1) : "0.0";
 
-      console.log("📊 RESUMEN MÉTRICAS CONSOLIDADAS:", {
-        whatsappEnviados: totalSent, // Suma de count_day
-        responded,
-        notResponded,
-        responseRate,
-        costoTotal: (totalSent * COSTO_POR_MENSAJE).toFixed(2)
+      // CÉDULAS ÚNICAS GLOBALES del rango (8 tablas)
+      const uniqueCedulas = Array.from(new Set(allCedulas));
+      const costoTotal = (totalSent * COSTO_POR_MENSAJE).toFixed(2);
+
+      // Clasificar RESPONDIERON / NO RESPONDIERON con REGLA ÚNICA
+      const responseMap = await clasificarCedulasPorRespuesta(uniqueCedulas);
+
+      let respondieron = 0;
+      let noRespondieron = 0;
+
+      uniqueCedulas.forEach((ced) => {
+        const didRespond = responseMap.get(ced);
+        if (didRespond) respondieron++;
+        else noRespondieron++;
       });
 
+      const responseRate =
+        uniqueCedulas.length > 0
+          ? ((respondieron / uniqueCedulas.length) * 100).toFixed(1)
+          : "0.0";
+
       return {
-        totalSent: totalSent, // WhatsApp Enviados = suma de count_day
-        totalCost: (totalSent * COSTO_POR_MENSAJE).toFixed(2), // Costo = totalSent × $0.014
-        responded,
-        notResponded,
-        responseRate
+        totalSent,
+        totalCost: costoTotal,
+        responded: respondieron,
+        notResponded: noRespondieron,
+        responseRate,
+        totalCedulasUnicas: uniqueCedulas.length,
       };
     },
     enabled: !!startDate && !!endDate,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Detalle por campaña para día específico
+  // ============================================================
+  //  DETALLE POR CAMPAÑA - DÍA ESPECÍFICO (8 TABLAS + GLOBAL DÍA)
+  // ============================================================
   const { data: campaignDetails, isLoading: loadingCampaigns } = useQuery({
-    queryKey: ["campaign-details-final-v2", campaignFilterDate],
+    queryKey: ["campaign-details-final-v4", campaignFilterDate],
     queryFn: async () => {
       const fechaConsulta = format(campaignFilterDate, "yyyy-MM-dd");
-      
-      console.log("🔍 Obteniendo detalles por campaña para:", fechaConsulta);
 
-      const campaigns = [];
+      const campaigns: any[] = [];
       let totalSent = 0;
-      let allCedulas: string[] = [];
+      let allCedulasDia: string[] = []; // cédulas únicas por campaña, pero todas juntas
 
-      // Query each campaign table individually for the specific day
       for (const tableName of campaignTables) {
-        try {          const { data, error } = await supabase
+        try {
+          const { data, error } = await supabase
             .from(tableName)
             .select("count_day, cedulas, fecha")
             .gte("fecha", fechaConsulta)
             .lte("fecha", fechaConsulta);
-            if (error) {
+
+          if (error) {
             console.error(`Error querying ${tableName}:`, error);
             campaigns.push({
               name: campaignNames[tableName] || tableName.toUpperCase(),
@@ -205,47 +259,56 @@ const DayByDayTab = () => {
               cost: "0.00",
               cedulas: [],
               responded: 0,
-              notResponded: 0
+              notResponded: 0,
+              cedulasUnicas: 0,
             });
             continue;
           }
-            if (data && data.length > 0) {
-            // Sum up count_day for this table
-            const tableSent = data.reduce((sum, record) => sum + (record.count_day || 0), 0);
-            
-            // Collect cedulas for this table
+
+          if (data && data.length > 0) {
+            const tableSent = data.reduce(
+              (sum, record) => sum + (record.count_day || 0),
+              0
+            );
+
             const tableCedulas: string[] = [];
-            data.forEach(record => {
+            data.forEach((record) => {
               if (record.cedulas && Array.isArray(record.cedulas)) {
-                tableCedulas.push(...record.cedulas.map(c => String(c).trim()).filter(c => c));
+                tableCedulas.push(
+                  ...record.cedulas
+                    .map((c: any) => String(c).trim())
+                    .filter((c: string) => c)
+                );
               }
             });
-            
-            // For now, we'll store the campaign with count_day info
-            // Response calculations will be done globally after collecting all cedulas
+
+            // cédulas únicas dentro de esa campaña para ese día
+            const cedulasUnicasCampana = Array.from(new Set(tableCedulas));
+
             campaigns.push({
               name: campaignNames[tableName] || tableName.toUpperCase(),
-              sent: tableSent, // count_day
+              sent: tableSent,
               cost: (tableSent * COSTO_POR_MENSAJE).toFixed(2),
-              cedulas: Array.from(new Set(tableCedulas)), // unique cedulas for this campaign
-              responded: 0, // Will be calculated after we get all responses
-              notResponded: 0 // Will be calculated after we get all responses
+              cedulas: cedulasUnicasCampana, // solo para cálculo interno
+              responded: 0,
+              notResponded: 0,
+              cedulasUnicas: cedulasUnicasCampana.length,
             });
-            
+
             totalSent += tableSent;
-            allCedulas.push(...tableCedulas);
-            
-            console.log(`✅ ${tableName} - ${fechaConsulta}: ${tableSent} enviados, ${tableCedulas.length} cédulas`);          } else {
+            allCedulasDia.push(...cedulasUnicasCampana);
+          } else {
             campaigns.push({
               name: campaignNames[tableName] || tableName.toUpperCase(),
               sent: 0,
               cost: "0.00",
               cedulas: [],
               responded: 0,
-              notResponded: 0
+              notResponded: 0,
+              cedulasUnicas: 0,
             });
-            console.log(`⚠️ ${tableName} - ${fechaConsulta}: Sin datos`);
-          }        } catch (err) {
+          }
+        } catch (err) {
           console.error(`Error accessing table ${tableName}:`, err);
           campaigns.push({
             name: campaignNames[tableName] || tableName.toUpperCase(),
@@ -253,175 +316,175 @@ const DayByDayTab = () => {
             cost: "0.00",
             cedulas: [],
             responded: 0,
-            notResponded: 0
+            notResponded: 0,
+            cedulasUnicas: 0,
           });
         }
       }
 
-      // Get global response data for all unique cedulas
-      const uniqueCedulas = Array.from(new Set(allCedulas));
-      let responseMap = new Map(); // Cedula -> conversation_id status
-      
-      if (uniqueCedulas.length > 0) {
-        const cedulasAsNumbers = uniqueCedulas.map(c => {
-          const n = parseInt(c.replace(/\D/g, ''));
-          return isNaN(n) ? null : n;
-        }).filter((n): n is number => n !== null);
-        
-        if (cedulasAsNumbers.length > 0) {
-          try {
-            const { data: responseData } = await supabase
-              .from("POINT_Competencia")
-              .select("Cedula, conversation_id")
-              .in("Cedula", cedulasAsNumbers);
-            
-            if (responseData) {
-              // Create a map of cedula to response status
-              responseData.forEach(r => {
-                responseMap.set(r.Cedula, {
-                  responded: r.conversation_id !== null && r.conversation_id !== 0,
-                  conversation_id: r.conversation_id
-                });
-              });
-            }
-          } catch (err) {
-            console.error("Error querying response data:", err);
-          }
-        }
-      }
+      // 🔹 CÉDULAS ÚNICAS DEL DÍA (UNIÓN DE LAS 8 CAMPAÑAS)
+      const uniqueCedulasDia = Array.from(new Set(allCedulasDia));
 
-      // Now calculate responses for each campaign based on global response data
+      // Aplicamos REGLA ÚNICA para el día completo
+      const responseMap = await clasificarCedulasPorRespuesta(uniqueCedulasDia);
+
+      // 1) Resumen global del día (por cédula única, SIN duplicar por campaña)
+      let overallRespondedDia = 0;
+      let overallNotRespondedDia = 0;
+
+      uniqueCedulasDia.forEach((cedula) => {
+        const didRespond = responseMap.get(cedula);
+        if (didRespond) overallRespondedDia++;
+        else overallNotRespondedDia++;
+      });
+
+      // 2) Detalle por campaña usando la misma regla, pero solo con las cédulas de cada campaña
       campaigns.forEach((campaign: any) => {
         let campaignResponded = 0;
         let campaignNotResponded = 0;
-        
+
         campaign.cedulas.forEach((cedula: string) => {
-          const cedulaNum = parseInt(cedula.replace(/\D/g, ''));
-          if (!isNaN(cedulaNum)) {
-            const responseStatus = responseMap.get(cedulaNum);
-            if (responseStatus?.responded) {
-              campaignResponded++;
-            } else {
-              campaignNotResponded++;
-            }
-          }
+          const didRespond = responseMap.get(cedula);
+          if (didRespond) campaignResponded++;
+          else campaignNotResponded++;
         });
-        
-        // Ensure math for this campaign: responded + notResponded should equal count_day
-        // Note: count_day is total messages sent, not unique cedulas
-        // We need to distribute responses proportionally if needed
-        const campaignTotal = campaignResponded + campaignNotResponded;
-        if (campaignTotal !== campaign.sent && campaign.sent > 0) {
-          // If the total unique cedulas doesn't match count_day, we need to scale
-          const scaleFactor = campaign.sent / Math.max(campaignTotal, 1);
-          campaignResponded = Math.round(campaignResponded * scaleFactor);
-          campaignNotResponded = campaign.sent - campaignResponded;
-        }
-        
+
         campaign.responded = campaignResponded;
         campaign.notResponded = campaignNotResponded;
-        
-        // Remove cedulas from the final object (only needed for calculation)
-        delete campaign.cedulas;
-      });      // Calculate overall totals for the day by summing up campaign totals
-      const overallResponded = campaigns.reduce((sum: number, campaign: any) => sum + campaign.responded, 0);
-      const overallNotResponded = campaigns.reduce((sum: number, campaign: any) => sum + campaign.notResponded, 0);
 
-      console.log("📊 RESUMEN DÍA ESPECÍFICO:", {
-        whatsappEnviados: totalSent,
-        totalCost: (totalSent * COSTO_POR_MENSAJE).toFixed(2),
-        overallResponded,
-        overallNotResponded
+        // ya no necesitamos el array de cédulas en el resultado final
+        delete campaign.cedulas;
       });
+
+      const totalCostDia = (totalSent * COSTO_POR_MENSAJE).toFixed(2);
 
       return {
         campaigns,
-        totalSent: totalSent,
-        totalCost: (totalSent * COSTO_POR_MENSAJE).toFixed(2),
-        responded: overallResponded,
-        notResponded: overallNotResponded
+        totalSent,
+        totalCost: totalCostDia,
+        responded: overallRespondedDia,
+        notResponded: overallNotRespondedDia,
+        totalCedulasUnicasDia: uniqueCedulasDia.length,
       };
     },
     enabled: !!campaignFilterDate,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   return (
     <div className="space-y-6">
-      {/* 🟥 EXPLICACIÓN COMPLETA DEL DASHBOARD - LAS 8 CAMPAÑAS */}
+      {/* 🔵 EXPLICACIÓN GENERAL DEL DASHBOARD */}
       <Card className="border-2 border-blue-200 bg-blue-50/50">
         <CardHeader>
-          <CardTitle className="text-lg text-blue-800">🟥 ¿Qué Significa Cada Dato del Dashboard? - Campañas de WhatsApp</CardTitle>
+          <CardTitle className="text-lg text-blue-800">
+            🧠 ¿Qué significan los datos del dashboard?
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
-
+          <p className="text-xs text-gray-700">
+            Este panel resume cómo están funcionando las{" "}
+            <strong>campañas automáticas de WhatsApp de cobranzas</strong>. Cada vez
+            que se envía un mensaje o un cliente responde, se guarda un registro y
+            con eso se construyen todas las métricas que ves aquí.
+          </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white rounded p-3">
-              <h4 className="font-semibold text-blue-700 mb-2">🟦 WhatsApp Enviados</h4>
-              <p className="text-xs">Cantidad de mensajes enviados por una campaña o por todas juntas.</p>
-              <ul className="list-disc ml-4 mt-1 text-xs">
-                <li><strong>Por tabla:</strong> suma de count_day para esa campaña</li>
-                <li><strong>Global:</strong> suma de count_day de las 8 campañas</li>
-              </ul>
-            </div>
-
-            <div className="bg-white rounded p-3">
-              <h4 className="font-semibold text-blue-700 mb-2">🟦 Costo del Día / Rango</h4>
-              <p className="text-xs">Dinero gastado en enviar mensajes:</p>
-              <p className="text-xs font-mono bg-gray-100 px-2 py-1 rounded mt-1">
-                mensajes enviados × ${COSTO_POR_MENSAJE}
+              <h4 className="font-semibold text-blue-700 mb-2">📨 WhatsApp enviados</h4>
+              <p className="text-xs">
+                Es la cantidad total de mensajes de WhatsApp que se enviaron desde las
+                campañas en el periodo seleccionado.
               </p>
             </div>
 
             <div className="bg-white rounded p-3">
-              <h4 className="font-semibold text-blue-700 mb-2">🟦 Cédulas Únicas por Campaña</h4>
-              <p className="text-xs">Personas distintas contactadas <strong>por esa campaña</strong> ese día.</p>
-              <p className="text-xs text-gray-600 mt-1">Se extraen las cédulas del array y se eliminan duplicados dentro de la tabla.</p>
+              <h4 className="font-semibold text-blue-700 mb-2">
+                💵 Costo del día / rango
+              </h4>
+              <p className="text-xs">
+                Es el valor estimado que se ha invertido en los envíos de WhatsApp.
+                Se calcula multiplicando el número de mensajes enviados por una tarifa
+                promedio de <strong>$0.014</strong> por mensaje.
+              </p>
             </div>
 
             <div className="bg-white rounded p-3">
-              <h4 className="font-semibold text-blue-700 mb-2">🟦 Cédulas Únicas Globales</h4>
-              <p className="text-xs">Personas distintas contactadas por <strong>cualquiera de las 8 campañas</strong>.</p>
-              <p className="text-xs text-orange-600 font-medium mt-1">⚠️ Si una persona aparece en 3 campañas, se cuenta solo una vez globalmente.</p>
+              <h4 className="font-semibold text-blue-700 mb-2">
+                🧍‍♂️ Personas contactadas por campaña
+              </h4>
+              <p className="text-xs">
+                Muestra cuántas personas diferentes fueron contactadas{" "}
+                <strong>dentro de cada campaña</strong> en un día específico. Si a la
+                misma persona se le envían varios mensajes dentro de esa campaña, aquí
+                se la cuenta una sola vez.
+              </p>
             </div>
 
             <div className="bg-white rounded p-3">
-              <h4 className="font-semibold text-blue-700 mb-2">🟦 Respondieron</h4>
-              <p className="text-xs">Personas cuyo <code className="bg-gray-100 px-1">conversation_id ≠ 0</code> y <code className="bg-gray-100 px-1">≠ NULL</code> en POINT_Competencia.</p>
-              <p className="text-xs text-green-600 mt-1">✅ Indica que sí contestaron al mensaje.</p>
+              <h4 className="font-semibold text-blue-700 mb-2">
+                🌎 Personas contactadas totales (cédulas únicas)
+              </h4>
+              <p className="text-xs">
+                Indica cuántas personas distintas fueron contactadas sumando todas las
+                campañas del rango de fechas. Si una persona aparece en varias
+                campañas, <strong>solo se la cuenta una vez</strong> a nivel global.
+              </p>
             </div>
 
             <div className="bg-white rounded p-3">
-              <h4 className="font-semibold text-blue-700 mb-2">🟦 No Respondieron</h4>
-              <p className="text-xs">Personas cuyo <code className="bg-gray-100 px-1">conversation_id = 0</code> o <code className="bg-gray-100 px-1">= NULL</code>.</p>
-              <p className="text-xs text-orange-600 mt-1">❌ No contestaron al mensaje.</p>
+              <h4 className="font-semibold text-blue-700 mb-2">✅ Respondieron</h4>
+              <p className="text-xs">
+                Son las personas que enviaron al menos un mensaje de respuesta o
+                continuaron la conversación después de recibir el WhatsApp de
+                cobranza. Aquí cada persona cuenta una sola vez, aunque haya tenido
+                muchas interacciones.
+              </p>
+            </div>
+
+            <div className="bg-white rounded p-3">
+              <h4 className="font-semibold text-blue-700 mb-2">❌ No respondieron</h4>
+              <p className="text-xs">
+                Son las personas a las que se les envió un WhatsApp, pero{" "}
+                <strong>no han contestado</strong> en el periodo analizado, o todavía
+                no tenemos ninguna conversación registrada con ellas.
+              </p>
             </div>
           </div>
 
           <div className="bg-orange-100 border border-orange-300 rounded p-3">
-            <h4 className="font-semibold text-orange-800 mb-2">🟦 Diferencia: Métricas por Tabla vs. Globales</h4>
+            <h4 className="font-semibold text-orange-800 mb-2">
+              🔍 ¿Qué diferencia hay entre los datos por campaña y los datos globales?
+            </h4>
             <ul className="list-disc ml-4 text-xs space-y-1">
-              <li><strong>Por tabla:</strong> Mide actividad por campaña individual. Una misma persona puede aparecer varias veces si estuvo en varias campañas.</li>
-              <li><strong>Globales:</strong> Miden comportamiento de personas únicas. Cada persona cuenta solo una vez.</li>
-              <li><strong>Importante:</strong> Los totales por tabla NO deben coincidir con los totales globales. Esto es correcto y esperado.</li>
+              <li>
+                <strong>Por campaña:</strong> ves el comportamiento separado de cada
+                campaña (Mora 5, Mora 3, Compromiso de pago, etc.).
+              </li>
+              <li>
+                <strong>Global:</strong> ves el comportamiento de{" "}
+                <strong>personas únicas</strong> sumando todas las campañas.
+              </li>
+              <li>
+                Por eso, la suma de las personas que responden en cada campaña puede
+                ser mayor que el total global: una misma persona puede aparecer en
+                varias campañas, pero globalmente se cuenta una sola vez.
+              </li>
             </ul>
-          </div>
-
-          <div className="bg-green-100 border border-green-300 rounded p-3">
-            <p className="font-semibold text-green-800 text-center">
-              ✅ Regla Matemática Obligatoria: Respondieron + No Respondieron = Cédulas Únicas (por tabla o global)
-            </p>
           </div>
         </CardContent>
       </Card>
 
+      {/* ========================================= */}
+      {/*     MÉTRICAS POR DÍA (RANGO DE FECHAS)   */}
+      {/* ========================================= */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold mb-2">Métricas por Día</h2>
-          <p className="text-muted-foreground">Analiza el rendimiento por rango de fechas de las 8 campañas</p>
+          <p className="text-muted-foreground">
+            Analiza el rendimiento por rango de fechas de las 8 campañas
+          </p>
         </div>
-        
+
         <div className="flex gap-2">
           <Popover>
             <PopoverTrigger asChild>
@@ -462,57 +525,57 @@ const DayByDayTab = () => {
       </div>
 
       {isLoading ? (
-        <LoadingState 
-          title="Consultando tablas de campaña..."
-          message="Obteniendo datos consolidados usando count_day y calculando métricas de respuesta."
+        <LoadingState
+          title="Consultando campañas..."
+          message="Obteniendo la información de mensajes enviados, personas contactadas y respuestas en el rango seleccionado."
           skeletonCount={5}
         />
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <MetricCard
               title="WhatsApp Enviados"
               value={dayMetrics?.totalSent?.toLocaleString() || "0"}
               icon={Send}
-              description={`Suma count_day: ${format(startDate, "dd/MM/yyyy")} - ${format(endDate, "dd/MM/yyyy")}`}
+              description={`Mensajes enviados entre ${format(
+                startDate,
+                "dd/MM/yyyy"
+              )} y ${format(endDate, "dd/MM/yyyy")}`}
             />
             <MetricCard
               title="Costo Total"
               value={`$${dayMetrics?.totalCost || "0.00"}`}
               icon={DollarSign}
-              description="WhatsApp Enviados × $0.014"
+              description="Estimado: mensajes enviados × $0.014"
             />
             <MetricCard
               title="Respondieron"
               value={dayMetrics?.responded?.toLocaleString() || "0"}
               icon={UserCheck}
-              description={`${dayMetrics?.responseRate || "0"}% del total enviados`}
+              description={`${dayMetrics?.responseRate || "0"}% de las personas contactadas en el rango`}
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="col-span-1">
-              <MetricCard
-                title="No Respondieron"
-                value={dayMetrics?.notResponded?.toLocaleString() || "0"}
-                icon={UserX}
-                description="conversation_id = null o 0"
-              />
-            </div>            <div className="col-span-2 flex items-center justify-center p-4 bg-muted/30 rounded-lg">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground">Verificación Matemática:</p>
-                <p className="text-lg font-semibold">
-                  Respondieron ({dayMetrics?.responded || 0}) + No Respondieron ({dayMetrics?.notResponded || 0}) = Cédulas Únicas ({(dayMetrics?.responded || 0) + (dayMetrics?.notResponded || 0)})
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  WhatsApp Enviados: {dayMetrics?.totalSent || 0} (puede ser diferente porque es count_day, no cédulas únicas)
-                </p>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <MetricCard
+              title="No Respondieron"
+              value={dayMetrics?.notResponded?.toLocaleString() || "0"}
+              icon={UserX}
+              description="Personas contactadas que no han respondido en el rango"
+            />
+            <MetricCard
+              title="Cédulas Únicas (Rango)"
+              value={dayMetrics?.totalCedulasUnicas?.toLocaleString() || "0"}
+              icon={Users}
+              description="Total de personas distintas contactadas en todas las campañas"
+            />
           </div>
         </div>
       )}
 
+      {/* ================================================== */}
+      {/*   DETALLE POR CAMPAÑA - DÍA ESPECÍFICO (8 TABLAS)  */}
+      {/* ================================================== */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Detalle por Campaña - Día Específico</CardTitle>
@@ -536,66 +599,123 @@ const DayByDayTab = () => {
         </CardHeader>
         <CardContent>
           {loadingCampaigns ? (
-            <LoadingState 
+            <LoadingState
               title="Cargando campañas del día..."
-              message="Consultando cada tabla de campaña para obtener métricas individuales."
+              message="Consultando cada campaña para mostrar mensajes enviados, personas y respuestas de la fecha seleccionada."
               showSkeletons={false}
             />
           ) : (
             <div className="space-y-6">
-              {/* Summary metrics for the specific day */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
+              {/* Resumen global del día por CÉDULA ÚNICA */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-muted/50 rounded-lg">
                 <div className="text-center">
-                  <p className="text-sm text-muted-foreground mb-1">WhatsApp Enviados</p>
-                  <p className="text-2xl font-bold">{campaignDetails?.totalSent?.toLocaleString() || "0"}</p>
+                  <p className="text-sm text-muted-foreground mb-1">
+                    WhatsApp Enviados
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {campaignDetails?.totalSent?.toLocaleString() || "0"}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-1">
+                    Cédulas Únicas del Día
+                  </p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {campaignDetails?.totalCedulasUnicasDia?.toLocaleString() || "0"}
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground mb-1">Costo del Día</p>
-                  <p className="text-2xl font-bold text-blue-600">${campaignDetails?.totalCost || "0.00"}</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    ${campaignDetails?.totalCost || "0.00"}
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground mb-1">Respondieron</p>
-                  <p className="text-2xl font-bold text-green-600">{campaignDetails?.responded?.toLocaleString() || "0"}</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {campaignDetails?.responded?.toLocaleString() || "0"}
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground mb-1">No Respondieron</p>
-                  <p className="text-2xl font-bold text-orange-600">{campaignDetails?.notResponded?.toLocaleString() || "0"}</p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {campaignDetails?.notResponded?.toLocaleString() || "0"}
+                  </p>
                 </div>
               </div>
 
-              {/* Individual campaign breakdown */}
+              {/* Desglose por tabla de campaña */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">Desglose por Tabla de Campaña</h3>
+
                 {campaignDetails?.campaigns?.map((campaign: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
-                    <div>
-                      <div className="font-medium">{campaign.name}</div>
-                      <div className="text-sm text-muted-foreground">Tabla de campaña</div>
+                  <div
+                    key={idx}
+                    className="p-4 border rounded-lg hover:bg-accent/50 transition-colors space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{campaign.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          Tabla de campaña
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex gap-4 text-sm">
-                      <span className="text-muted-foreground">
-                        Enviados: <span className="font-semibold text-foreground">{campaign.sent.toLocaleString()}</span>
-                      </span>
-                      <span className="text-muted-foreground">
-                        Costo: <span className="font-semibold text-foreground">${campaign.cost}</span>
-                      </span>
-                      <span className="text-muted-foreground">
-                        Respondieron: <span className="font-semibold text-green-600">{campaign.responded}</span>
-                      </span>
-                      <span className="text-muted-foreground">
-                        No Respondieron: <span className="font-semibold text-orange-600">{campaign.notResponded}</span>
-                      </span>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+                      <div className="text-center p-2 bg-blue-50 rounded">
+                        <p className="text-muted-foreground text-xs">
+                          WhatsApp Enviados
+                        </p>
+                        <p className="font-semibold text-foreground">
+                          {campaign.sent.toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="text-center p-2 bg-purple-50 rounded">
+                        <p className="text-muted-foreground text-xs">
+                          Cédulas Únicas
+                        </p>
+                        <p className="font-semibold text-purple-700">
+                          {campaign.cedulasUnicas?.toLocaleString() || 0}
+                        </p>
+                      </div>
+                      <div className="text-center p-2 bg-gray-50 rounded">
+                        <p className="text-muted-foreground text-xs">Costo</p>
+                        <p className="font-semibold text-foreground">
+                          ${campaign.cost}
+                        </p>
+                      </div>
+                      <div className="text-center p-2 bg-green-50 rounded">
+                        <p className="text-muted-foreground text-xs">Respondieron</p>
+                        <p className="font-semibold text-green-600">
+                          {campaign.responded}
+                        </p>
+                      </div>
+                      <div className="text-center p-2 bg-orange-50 rounded">
+                        <p className="text-muted-foreground text-xs">
+                          No Respondieron
+                        </p>
+                        <p className="font-semibold text-orange-600">
+                          {campaign.notResponded}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 ))}
-                {campaignDetails?.campaigns && campaignDetails.campaigns.length === 0 && (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">No hay datos de campaña para esta fecha</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Verifica que existan registros en las tablas: point_mora_neg5, point_mora_neg3, point_mora_neg2, point_mora_neg1, point_mora_pos1, point_mora_pos4, point_compromiso_pago, point_reactivacion_cobro
-                    </p>
-                  </div>
-                )}
+
+                {campaignDetails?.campaigns &&
+                  campaignDetails.campaigns.length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">
+                        No hay datos de campaña para esta fecha.
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Verifica que existan registros en las tablas: point_mora_neg5,
+                        point_mora_neg3, point_mora_neg2, point_mora_neg1,
+                        point_mora_pos1, point_mora_pos4, point_compromiso_pago y
+                        point_reactivacion_cobro.
+                      </p>
+                    </div>
+                  )}
               </div>
             </div>
           )}
