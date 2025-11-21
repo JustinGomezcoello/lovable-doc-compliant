@@ -14,7 +14,8 @@ import {
   AlertCircle,
   CreditCard,
   Banknote,
-  UserX
+  UserX,
+  PhoneOff
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar } from "@/components/ui/calendar";
@@ -217,6 +218,12 @@ const GeneralTab = () => {
             value={chatwootMetrics?.resuelto?.toString() || "0"}
             icon={CheckCircle}
             description="Casos resueltos de soporte, servicio técnico, devolución producto y cobrador"
+          />
+          <MetricCard
+            title="Número Equivocado"
+            value={chatwootMetrics?.numero_equivocado?.toString() || "0"}
+            icon={PhoneOff}
+            description="Cliente indicó que fue contactado por error"
           />
         </div>
       </div>

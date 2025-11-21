@@ -1178,6 +1178,36 @@ export type Database = {
         }
         Relationships: []
       }
+      point_mora_neg4: {
+        Row: {
+          cedulas: string[]
+          count_day: number
+          fecha: string | null
+          hora: string | null
+          id: number
+          notes: string | null
+          total_cum: number
+        }
+        Insert: {
+          cedulas?: string[]
+          count_day?: number
+          fecha?: string | null
+          hora?: string | null
+          id?: number
+          notes?: string | null
+          total_cum?: number
+        }
+        Update: {
+          cedulas?: string[]
+          count_day?: number
+          fecha?: string | null
+          hora?: string | null
+          id?: number
+          notes?: string | null
+          total_cum?: number
+        }
+        Relationships: []
+      }
       point_mora_neg5: {
         Row: {
           cedulas: string[]
@@ -1238,7 +1268,97 @@ export type Database = {
         }
         Relationships: []
       }
+      point_mora_pos2: {
+        Row: {
+          cedulas: string[]
+          count_day: number
+          fecha: string | null
+          hora: string | null
+          id: number
+          notes: string | null
+          total_cum: number
+        }
+        Insert: {
+          cedulas?: string[]
+          count_day?: number
+          fecha?: string | null
+          hora?: string | null
+          id?: number
+          notes?: string | null
+          total_cum?: number
+        }
+        Update: {
+          cedulas?: string[]
+          count_day?: number
+          fecha?: string | null
+          hora?: string | null
+          id?: number
+          notes?: string | null
+          total_cum?: number
+        }
+        Relationships: []
+      }
+      point_mora_pos3: {
+        Row: {
+          cedulas: string[]
+          count_day: number
+          fecha: string | null
+          hora: string | null
+          id: number
+          notes: string | null
+          total_cum: number
+        }
+        Insert: {
+          cedulas?: string[]
+          count_day?: number
+          fecha?: string | null
+          hora?: string | null
+          id?: number
+          notes?: string | null
+          total_cum?: number
+        }
+        Update: {
+          cedulas?: string[]
+          count_day?: number
+          fecha?: string | null
+          hora?: string | null
+          id?: number
+          notes?: string | null
+          total_cum?: number
+        }
+        Relationships: []
+      }
       point_mora_pos4: {
+        Row: {
+          cedulas: string[]
+          count_day: number
+          fecha: string | null
+          hora: string | null
+          id: number
+          notes: string | null
+          total_cum: number
+        }
+        Insert: {
+          cedulas?: string[]
+          count_day?: number
+          fecha?: string | null
+          hora?: string | null
+          id?: number
+          notes?: string | null
+          total_cum?: number
+        }
+        Update: {
+          cedulas?: string[]
+          count_day?: number
+          fecha?: string | null
+          hora?: string | null
+          id?: number
+          notes?: string | null
+          total_cum?: number
+        }
+        Relationships: []
+      }
+      point_mora_pos5: {
         Row: {
           cedulas: string[]
           count_day: number
