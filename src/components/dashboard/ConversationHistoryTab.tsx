@@ -445,20 +445,51 @@ const ConversationHistoryTab = () => {
         /\w+\s+(added|removed|applied|deleted)\s+(label|tag|etiqueta)/i,
         /\w+\s+(agregó|eliminó|aplicó)\s+(etiqueta|label)/i
       ];
-      
-      const isStateMessage = estadosSistemaPatterns.some(pattern => pattern.test(messageText));
+        const isStateMessage = estadosSistemaPatterns.some(pattern => pattern.test(messageText));
       if (isStateMessage) {
         console.log("🚫 Mensaje del sistema filtrado:", messageText, "- Rol:", message.rol);
         return null; // No mostrar estos mensajes
       }
     }
-      if (!messageText) {
-      return message.rol === "BOT" ? "<strong>PLANTILLA PERSONALIZADA WHATSAPP</strong>" : "<strong>IMAGEN ENVIADA</strong>";
+    
+    // 🔴 PRIORIDAD ALTA: Detectar mensaje específico de Banco Pichincha (SIEMPRE indica imagen enviada)
+    if (messageText === "Enviado desde mi nueva Banca Móvil de Banco Pichincha") {
+      console.log("✅ Detectado mensaje de Banco Pichincha - Mostrando: IMAGEN ENVIADA");
+      return "<strong>IMAGEN ENVIADA</strong>";
     }
     
-    // Cambiar [Sin contenido] por IMAGEN ENVIADA en negrita
+    // Detectar tipo de archivo según el campo 'tipo' del mensaje
+    if (!messageText) {
+      if (message.rol === "BOT") {
+        return "<strong>PLANTILLA PERSONALIZADA WHATSAPP</strong>";
+      }
+      
+      // Diferenciar entre imagen y audio según el tipo
+      const tipo = message.tipo?.toLowerCase() || "";
+      console.log("🔍 Mensaje sin texto. Tipo detectado:", tipo);
+      
+      if (tipo.includes("audio") || tipo.includes("voice")) {
+        return "<strong>AUDIO DE VOZ</strong>";
+      } else if (tipo.includes("image") || tipo.includes("imagen")) {
+        return "<strong>IMAGEN ENVIADA</strong>";
+      } else {
+        // Fallback si no se puede determinar el tipo
+        return "<strong>ARCHIVO MULTIMEDIA</strong>";
+      }
+    }
+    
+    // Cambiar [Sin contenido] por tipo específico
     if (messageText === "[Sin contenido]") {
-      return "<strong>IMAGEN ENVIADA</strong>";
+      const tipo = message.tipo?.toLowerCase() || "";
+      console.log("🔍 [Sin contenido] detectado. Tipo:", tipo);
+      
+      if (tipo.includes("audio") || tipo.includes("voice")) {
+        return "<strong>AUDIO DE VOZ</strong>";
+      } else if (tipo.includes("image") || tipo.includes("imagen")) {
+        return "<strong>IMAGEN ENVIADA</strong>";
+      } else {
+        return "<strong>ARCHIVO MULTIMEDIA</strong>";
+      }
     }
     
     // Formatear texto con markdown
