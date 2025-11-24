@@ -23,6 +23,19 @@ interface ConversationRecord {
   Status?: string;
   Articulo?: string;
   ComprobanteEnviado?: string;
+  SaldoVencido?: number;
+  DiceQueYaPago?: string;
+  LlamarOtraVez?: string;
+  compromiso_pago_fecha?: string;
+  TipoDePago?: string;
+  RestanteSaldoVencido?: number;
+  EstadoEtiqueta?: string;
+}
+
+interface PriorityResult {
+  prioridad: number;
+  prioridad_porque: string;
+  confianza: number;
 }
 
 interface ConversationMessage {
@@ -46,9 +59,143 @@ interface ConversationHistory {
 const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_CONVERSATION_WEBHOOK_URL || 
   "https://primary-production-f05b.up.railway.app/webhook/651db7d0-7d3e-42a8-82b0-133c08a78201";
 
+// Función para calcular la prioridad de una conversación
+const calculatePriority = (record: ConversationRecord): PriorityResult => {
+  const saldoVencido = record.SaldoVencido || 0;
+  const comprobanteEnviado = record.ComprobanteEnviado?.toUpperCase() === "SI";
+  const diceQueYaPago = record.DiceQueYaPago?.toUpperCase() === "SI";
+  const llamarOtraVez = record.LlamarOtraVez?.toUpperCase() === "SI";
+  const tieneCompromiso = !!record.compromiso_pago_fecha;
+  const tipoDePago = record.TipoDePago?.toLowerCase();
+  const restanteSaldo = record.RestanteSaldoVencido || 0;
+  const estadoEtiqueta = record.EstadoEtiqueta?.toLowerCase() || "";
+
+  // Etiquetas de casos cerrados o no relacionados a cobranza
+  const etiquetasCerradas = ["servicio_tecnico", "soporte", "numero_equivocado", "no_registrado"];
+  const etiquetasEvasivas = ["consulto_saldo", "consulto_datos_transferencia"];
+  const etiquetasPositivas = ["compromiso_pago", "pagado", "comprobante_enviado"];
+
+  // 🔥 PRIORIDAD 1 - Sin urgencia / caso cerrado
+  if (
+    saldoVencido === 0 && 
+    !llamarOtraVez ||
+    etiquetasCerradas.some(tag => estadoEtiqueta.includes(tag))
+  ) {
+    return {
+      prioridad: 1,
+      prioridad_porque: "No existe deuda ni acción pendiente. Caso cerrado.",
+      confianza: 0.95
+    };
+  }
+
+  // 🔥 PRIORIDAD 2 - Urgencia baja (Cliente al día)
+  if (
+    saldoVencido === 0 &&
+    comprobanteEnviado &&
+    tipoDePago === "total" &&
+    !llamarOtraVez
+  ) {
+    return {
+      prioridad: 2,
+      prioridad_porque: "Cliente al día, comprobante confirmado. No requiere gestión.",
+      confianza: 0.90
+    };
+  }
+
+  // 🔥 PRIORIDAD 5 - Máxima urgencia
+  if (
+    saldoVencido > 0 &&
+    !comprobanteEnviado &&
+    !tieneCompromiso &&
+    (diceQueYaPago || etiquetasEvasivas.some(tag => estadoEtiqueta.includes(tag))) &&
+    llamarOtraVez
+  ) {
+    return {
+      prioridad: 5,
+      prioridad_porque: "Cliente con deuda pendiente sin comprobante, sin compromiso y alta probabilidad de morosidad.",
+      confianza: 0.95
+    };
+  }
+
+  // Caso alternativo de Prioridad 5 (sin etiquetas evasivas pero con alta deuda)
+  if (
+    saldoVencido > 0 &&
+    !comprobanteEnviado &&
+    !tieneCompromiso &&
+    llamarOtraVez
+  ) {
+    return {
+      prioridad: 5,
+      prioridad_porque: "Cliente con deuda alta sin comprobante ni compromiso. Requiere contacto urgente.",
+      confianza: 0.85
+    };
+  }
+
+  // 🔥 PRIORIDAD 4 - Urgencia alta
+  if (
+    saldoVencido > 0 &&
+    (tipoDePago === "parcial" || restanteSaldo > 0) &&
+    (tieneCompromiso || etiquetasPositivas.some(tag => estadoEtiqueta.includes(tag)))
+  ) {
+    return {
+      prioridad: 4,
+      prioridad_porque: "Cliente con deuda activa y señales de pago parcial o compromiso, requiere seguimiento.",
+      confianza: 0.80
+    };
+  }
+
+  // 🔥 PRIORIDAD 3 - Urgencia media
+  if (
+    saldoVencido > 0 &&
+    (comprobanteEnviado || tieneCompromiso) &&
+    llamarOtraVez
+  ) {
+    return {
+      prioridad: 3,
+      prioridad_porque: "Cliente con compromiso o comprobante pendiente de validación. Seguimiento moderado.",
+      confianza: 0.60
+    };
+  }
+
+  // Default: Prioridad 3 si tiene deuda
+  if (saldoVencido > 0) {
+    return {
+      prioridad: 3,
+      prioridad_porque: "Cliente con deuda pendiente. Requiere evaluación.",
+      confianza: 0.50
+    };
+  }
+
+  // Fallback
+  return {
+    prioridad: 2,
+    prioridad_porque: "Situación no clasificada. Revisión manual recomendada.",
+    confianza: 0.40
+  };
+};
+
+// Función para obtener el color y emoji según la prioridad
+const getPriorityBadge = (prioridad: number) => {
+  switch (prioridad) {
+    case 5:
+      return { color: "bg-red-100 text-red-800 border-red-300", emoji: "🔥", label: "URGENTE" };
+    case 4:
+      return { color: "bg-orange-100 text-orange-800 border-orange-300", emoji: "⚠️", label: "ALTA" };
+    case 3:
+      return { color: "bg-yellow-100 text-yellow-800 border-yellow-300", emoji: "⏰", label: "MEDIA" };
+    case 2:
+      return { color: "bg-green-100 text-green-800 border-green-300", emoji: "✅", label: "BAJA" };
+    case 1:
+      return { color: "bg-gray-100 text-gray-600 border-gray-300", emoji: "📁", label: "CERRADO" };
+    default:
+      return { color: "bg-gray-100 text-gray-600 border-gray-300", emoji: "❓", label: "SIN CLASIFICAR" };
+  }
+};
+
 const ConversationHistoryTab = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [comprobanteFilter, setComprobanteFilter] = useState<"todos" | "enviado" | "no_enviado">("todos");
+  const [priorityFilter, setPriorityFilter] = useState<"todos" | "5" | "4" | "3" | "2" | "1">("todos");
   const [selectedRecord, setSelectedRecord] = useState<ConversationRecord | null>(null);
 
   // Consulta para obtener todos los registros con conversation_id válido
@@ -65,8 +212,7 @@ const ConversationHistoryTab = () => {
       
       while (hasMoreData) {
         console.log(`📖 Obteniendo página ${page + 1}...`);
-        
-        const { data, error } = await supabase
+          const { data, error } = await supabase
           .from("POINT_Competencia")
           .select(`
             idCompra,
@@ -77,7 +223,14 @@ const ConversationHistoryTab = () => {
             Segmento,
             Status,
             Articulo,
-            ComprobanteEnviado
+            ComprobanteEnviado,
+            SaldoVencido,
+            DiceQueYaPago,
+            LlamarOtraVez,
+            compromiso_pago_fecha,
+            TipoDePago,
+            RestanteSaldoVencido,
+            EstadoEtiqueta
           `)
           .not("conversation_id", "is", null)
           .neq("conversation_id", 0)
@@ -168,7 +321,7 @@ const ConversationHistoryTab = () => {
       }
     },
     enabled: !!selectedRecord
-  });  // Filtrar registros según el término de búsqueda y filtro de comprobante
+  });  // Filtrar registros según el término de búsqueda, filtro de comprobante y prioridad
   const filteredRecords = allRecords?.filter(record => {
     // Filtro de búsqueda por texto
     const searchMatches = !searchTerm.trim() || (() => {
@@ -195,13 +348,19 @@ const ConversationHistoryTab = () => {
       }
     })();
     
-    return searchMatches && comprobanteMatches;
+    // Filtro de prioridad
+    const priorityMatches = (() => {
+      if (priorityFilter === "todos") return true;
+      const priority = calculatePriority(record);
+      return priority.prioridad === parseInt(priorityFilter);
+    })();
+    
+    return searchMatches && comprobanteMatches && priorityMatches;
   });
   // Calcular estadísticas PRIMERO: total conversaciones (todas las filas)
   const totalConversaciones = allRecords?.length || 0;
   const conComprobanteEnviado = allRecords?.filter(r => r.ComprobanteEnviado === "SI").length || 0;
   const sinComprobanteEnviado = totalConversaciones - conComprobanteEnviado;
-
   // 👥 DEDUPLICAR POR CÉDULA para la lista visual - Mostrar PERSONAS ÚNICAS
   // Mantener solo la conversación más reciente (mayor idCompra) por cada persona
   const uniqueFilteredRecords = filteredRecords?.reduce((acc, current) => {
@@ -218,10 +377,23 @@ const ConversationHistoryTab = () => {
     }
     
     return acc;
-  }, [] as ConversationRecord[]);
+  }, [] as ConversationRecord[])
+  // Ordenar por prioridad (mayor prioridad primero)
+  ?.sort((a, b) => {
+    const priorityA = calculatePriority(a).prioridad;
+    const priorityB = calculatePriority(b).prioridad;
+    return priorityB - priorityA; // Orden descendente: 5, 4, 3, 2, 1
+  });
 
   // Calcular personas únicas (basado en la lista deduplicada)
-  const personasUnicas = uniqueFilteredRecords?.length || 0;// Función para formatear texto con markdown (convertir **texto** y *texto* a <strong>texto</strong>)
+  const personasUnicas = uniqueFilteredRecords?.length || 0;
+  
+  // Calcular estadísticas de prioridad
+  const prioridadStats = uniqueFilteredRecords?.reduce((acc, record) => {
+    const priority = calculatePriority(record).prioridad;
+    acc[priority] = (acc[priority] || 0) + 1;
+    return acc;
+  }, {} as Record<number, number>);// Función para formatear texto con markdown (convertir **texto** y *texto* a <strong>texto</strong>)
   const formatMarkdownText = (text: string) => {
     // Primero convertir **texto** a <strong>texto</strong>
     let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -327,6 +499,22 @@ const ConversationHistoryTab = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-muted-foreground" />
+              <Select value={priorityFilter} onValueChange={(value: "todos" | "5" | "4" | "3" | "2" | "1") => setPriorityFilter(value)}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filtrar por prioridad" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas las prioridades</SelectItem>
+                  <SelectItem value="5">🔥 Prioridad 5 - URGENTE</SelectItem>
+                  <SelectItem value="4">⚠️ Prioridad 4 - ALTA</SelectItem>
+                  <SelectItem value="3">⏰ Prioridad 3 - MEDIA</SelectItem>
+                  <SelectItem value="2">✅ Prioridad 2 - BAJA</SelectItem>
+                  <SelectItem value="1">📁 Prioridad 1 - CERRADO</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -340,7 +528,7 @@ const ConversationHistoryTab = () => {
       ) : (
         <>          {/* Lista de clientes */}
           {uniqueFilteredRecords && uniqueFilteredRecords.length > 0 && !selectedRecord && (
-            <Card>              <CardHeader>                <CardTitle className="flex items-center justify-between">
+            <Card>              <CardHeader>                <CardTitle className="flex items-center justify-between flex-wrap gap-3">
                   <span>Clientes con Conversaciones ({personasUnicas})</span>
                   <div className="flex gap-2 text-sm flex-wrap">
                     <Badge variant="secondary" className="bg-blue-100 text-blue-700">
@@ -357,7 +545,35 @@ const ConversationHistoryTab = () => {
                     </Badge>
                   </div>
                 </CardTitle>
-              </CardHeader>              <CardContent>
+                <div className="flex gap-2 flex-wrap mt-3">
+                  <p className="text-sm font-semibold text-muted-foreground">📊 Por Prioridad:</p>
+                  {prioridadStats?.[5] && (
+                    <Badge className="bg-red-100 text-red-800 border-red-300">
+                      🔥 P5: {prioridadStats[5]}
+                    </Badge>
+                  )}
+                  {prioridadStats?.[4] && (
+                    <Badge className="bg-orange-100 text-orange-800 border-orange-300">
+                      ⚠️ P4: {prioridadStats[4]}
+                    </Badge>
+                  )}
+                  {prioridadStats?.[3] && (
+                    <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                      ⏰ P3: {prioridadStats[3]}
+                    </Badge>
+                  )}
+                  {prioridadStats?.[2] && (
+                    <Badge className="bg-green-100 text-green-800 border-green-300">
+                      ✅ P2: {prioridadStats[2]}
+                    </Badge>
+                  )}
+                  {prioridadStats?.[1] && (
+                    <Badge className="bg-gray-100 text-gray-600 border-gray-300">
+                      📁 P1: {prioridadStats[1]}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader><CardContent>
                 <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
                   <p className="text-sm text-purple-800">
                     <strong>ℹ️ Nota:</strong> Esta lista muestra <strong>personas únicas</strong> ({personasUnicas} clientes). 
@@ -366,37 +582,63 @@ const ConversationHistoryTab = () => {
                   </p>
                 </div>                <ScrollArea className="h-[400px]">
                   <div className="space-y-2">
-                    {uniqueFilteredRecords.map((record) => (
-                      <div
-                        key={record.Cedula}
-                        className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                        onClick={() => setSelectedRecord(record)}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="space-y-1 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold">{record.Cliente}</p>
-                              <Badge variant="outline" className="text-xs">
-                                💬 Conv #{record.conversation_id}
-                              </Badge>
+                    {uniqueFilteredRecords.map((record) => {
+                      const priority = calculatePriority(record);
+                      const priorityBadge = getPriorityBadge(priority.prioridad);
+                      
+                      return (
+                        <div
+                          key={record.Cedula}
+                          className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => setSelectedRecord(record)}
+                        >
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="space-y-1 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold">{record.Cliente}</p>
+                                <Badge variant="outline" className="text-xs">
+                                  💬 Conv #{record.conversation_id}
+                                </Badge>
+                                <Badge className={`text-xs font-bold border ${priorityBadge.color}`}>
+                                  {priorityBadge.emoji} P{priority.prioridad} - {priorityBadge.label}
+                                </Badge>
+                              </div>
+                              <div className="text-sm text-muted-foreground space-y-1">
+                                <p>🆔 Cédula: {record.Cedula}</p>
+                                <p>📱 Celular: {record.Celular}</p>
+                                <p>🛒 Última compra: {record.idCompra}</p>
+                                {record.Articulo && <p>📦 Artículo: {record.Articulo}</p>}
+                                {record.SaldoVencido !== undefined && record.SaldoVencido > 0 && (
+                                  <p className="font-semibold text-red-600">💰 Saldo Vencido: ${record.SaldoVencido.toFixed(2)}</p>
+                                )}
+                              </div>
+                              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                                <p className="font-semibold text-blue-800">📋 Razón de Prioridad:</p>
+                                <p className="text-blue-700">{priority.prioridad_porque}</p>
+                                <p className="text-blue-600 mt-1">🎯 Confianza: {(priority.confianza * 100).toFixed(0)}%</p>
+                              </div>
                             </div>
-                            <div className="text-sm text-muted-foreground space-y-1">
-                              <p>🆔 Cédula: {record.Cedula}</p>
-                              <p>📱 Celular: {record.Celular}</p>
-                              <p>🛒 Última compra: {record.idCompra}</p>
-                              {record.Articulo && <p>📦 Artículo: {record.Articulo}</p>}
+                            <div className="flex flex-col gap-2 items-end">
+                              {record.ComprobanteEnviado === "SI" && (
+                                <Badge className="bg-green-500 hover:bg-green-600">
+                                  ✅ Comprobante Enviado
+                                </Badge>
+                              )}
+                              {record.LlamarOtraVez === "SI" && (
+                                <Badge className="bg-orange-500 hover:bg-orange-600">
+                                  📞 Llamar Otra Vez
+                                </Badge>
+                              )}
+                              {record.compromiso_pago_fecha && (
+                                <Badge className="bg-purple-500 hover:bg-purple-600">
+                                  📅 Compromiso: {new Date(record.compromiso_pago_fecha).toLocaleDateString()}
+                                </Badge>
+                              )}
                             </div>
-                          </div>
-                          <div className="flex flex-col gap-2 items-end">
-                            {record.ComprobanteEnviado === "SI" && (
-                              <Badge className="bg-green-500 hover:bg-green-600">
-                                ✅ Comprobante Enviado
-                              </Badge>
-                            )}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </ScrollArea>
               </CardContent>
@@ -421,14 +663,34 @@ const ConversationHistoryTab = () => {
                   skeletonCount={3}
                 />
               ) : customerData?.customer ? (
-                <>
-                  {/* Customer Information Card */}
+                <>                  {/* Customer Information Card */}
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <User className="w-5 h-5" />
-                        Información del Cliente
+                      <CardTitle className="flex items-center gap-2 justify-between flex-wrap">
+                        <span className="flex items-center gap-2">
+                          <User className="w-5 h-5" />
+                          Información del Cliente
+                        </span>
+                        {(() => {
+                          const priority = calculatePriority(customerData.customer);
+                          const priorityBadge = getPriorityBadge(priority.prioridad);
+                          return (
+                            <Badge className={`text-sm font-bold border ${priorityBadge.color}`}>
+                              {priorityBadge.emoji} Prioridad {priority.prioridad} - {priorityBadge.label}
+                            </Badge>
+                          );
+                        })()}
                       </CardTitle>
+                      {(() => {
+                        const priority = calculatePriority(customerData.customer);
+                        return (
+                          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm font-semibold text-blue-800">📋 Análisis de Prioridad:</p>
+                            <p className="text-sm text-blue-700 mt-1">{priority.prioridad_porque}</p>
+                            <p className="text-sm text-blue-600 mt-1">🎯 Nivel de Confianza: {(priority.confianza * 100).toFixed(0)}%</p>
+                          </div>
+                        );
+                      })()}
                     </CardHeader>                    <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
@@ -470,8 +732,7 @@ const ConversationHistoryTab = () => {
                             <p className="font-semibold">{customerData.customer.idCompra || "N/A"}</p>
                           </div>
                         </div>
-                        
-                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                           <div className="w-5 h-5" />
                           <div>
                             <p className="text-sm text-muted-foreground">Estado de Comprobante</p>
@@ -486,6 +747,86 @@ const ConversationHistoryTab = () => {
                             )}
                           </div>
                         </div>
+                        
+                        {customerData.customer.SaldoVencido !== undefined && (
+                          <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                            <AlertCircle className="w-5 h-5 text-red-600" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">Saldo Vencido</p>
+                              <p className="font-bold text-red-600">${customerData.customer.SaldoVencido.toFixed(2)}</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {customerData.customer.RestanteSaldoVencido !== undefined && customerData.customer.RestanteSaldoVencido > 0 && (
+                          <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                            <AlertCircle className="w-5 h-5 text-orange-600" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">Saldo Restante</p>
+                              <p className="font-bold text-orange-600">${customerData.customer.RestanteSaldoVencido.toFixed(2)}</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {customerData.customer.TipoDePago && (
+                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                            <CreditCard className="w-5 h-5 text-primary" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">Tipo de Pago</p>
+                              <p className="font-semibold capitalize">{customerData.customer.TipoDePago}</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {customerData.customer.compromiso_pago_fecha && (
+                          <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                            <Package className="w-5 h-5 text-purple-600" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">Compromiso de Pago</p>
+                              <p className="font-bold text-purple-600">
+                                {new Date(customerData.customer.compromiso_pago_fecha).toLocaleDateString('es', { 
+                                  day: '2-digit', 
+                                  month: 'long', 
+                                  year: 'numeric' 
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {customerData.customer.LlamarOtraVez && (
+                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                            <Phone className="w-5 h-5 text-primary" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">Llamar Otra Vez</p>
+                              <Badge className={customerData.customer.LlamarOtraVez === "SI" ? "bg-orange-500" : "bg-gray-500"}>
+                                {customerData.customer.LlamarOtraVez || "NO"}
+                              </Badge>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {customerData.customer.DiceQueYaPago && (
+                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                            <MessageCircle className="w-5 h-5 text-primary" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">Dice Que Ya Pagó</p>
+                              <Badge className={customerData.customer.DiceQueYaPago === "SI" ? "bg-blue-500" : "bg-gray-500"}>
+                                {customerData.customer.DiceQueYaPago || "NO"}
+                              </Badge>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {customerData.customer.EstadoEtiqueta && (
+                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                            <Package className="w-5 h-5 text-primary" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">Estado/Etiqueta</p>
+                              <Badge variant="outline">{customerData.customer.EstadoEtiqueta}</Badge>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
