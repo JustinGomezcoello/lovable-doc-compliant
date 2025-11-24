@@ -545,15 +545,60 @@ const DayByDayTab = () => {
     },
     enabled: !!campaignFilterDate,
     staleTime: 5 * 60 * 1000,
-  });
-  // ═══════════════════════════════════════════════════════════════════════════════
+  });  // ═══════════════════════════════════════════════════════════════════════════════
   //  📊 TABLA DE DECISIÓN - CONTEO DE REGISTROS ELEGIBLES EN POINT_COMPETENCIA
   //  Muestra cuántos registros hay disponibles para enviar cada campaña
   // ═══════════════════════════════════════════════════════════════════════════════
+  
   const { data: decisionTableData, isLoading: isLoadingDecisionTable, refetch: refetchDecisionTable } = useQuery({
     queryKey: ["decision-table-mora-campaigns"],
-    queryFn: async () => {
-      console.log("🔵 Iniciando cálculo de tabla de decisión para campañas de mora...");
+    queryFn: async () => {      console.log("🔵 ========================================");
+      console.log("🔵 TABLA DE DECISIÓN - CAMPAÑAS DE MORA");
+      console.log("🔵 ========================================");
+
+      // Primero, verificar que la tabla tenga datos
+      const { count: totalCount, error: countError, data: testData } = await supabase
+        .from("POINT_Competencia")
+        .select("*", { count: "exact", head: true });
+
+      console.log(`📊 Total de registros en POINT_Competencia: ${totalCount || 0}`);
+      
+      if (countError) {
+        console.error("❌ ERROR al contar registros:", countError);
+        console.error("   Código:", countError.code);
+        console.error("   Mensaje:", countError.message);
+        console.error("   Detalles:", countError.details);
+        console.error("   Hint:", countError.hint);
+      }
+
+      // Test alternativo: intentar obtener un registro
+      const { data: sampleData, error: sampleError } = await supabase
+        .from("POINT_Competencia")
+        .select("idCompra, DiasMora, SaldoPorVencer")
+        .limit(1);
+
+      if (sampleError) {
+        console.error("❌ ERROR al obtener muestra:", sampleError);
+        console.error("   Esto probablemente es un problema de RLS (Row Level Security)");
+        toast({
+          title: "Error de permisos",
+          description: "No se puede acceder a POINT_Competencia. Verifica las políticas RLS.",
+          variant: "destructive",
+        });
+      } else {
+        console.log("✅ Muestra obtenida:", sampleData);
+      }
+
+      if (!totalCount || totalCount === 0) {
+        console.warn("⚠️ La tabla POINT_Competencia no tiene datos o RLS está bloqueando el acceso");
+        if (!countError && !sampleError) {
+          toast({
+            title: "Sin datos",
+            description: "La tabla POINT_Competencia está vacía",
+            variant: "destructive",
+          });
+        }
+      }
 
       const moraCampaigns = [
         { name: "MORA NEGATIVA 5", diasMora: -5, type: "negative" },
@@ -572,49 +617,76 @@ const DayByDayTab = () => {
 
       for (const campaign of moraCampaigns) {
         try {
+          console.log(`\n🔍 Consultando: ${campaign.name} (DiasMora=${campaign.diasMora})`);
+          
+          // Primero verificar cuántos registros hay para ese DiasMora SIN filtros
+          const { count: countWithoutFilters } = await supabase
+            .from("POINT_Competencia")
+            .select("*", { count: "exact", head: true })
+            .eq("DiasMora", campaign.diasMora);          console.log(`   📌 Registros con DiasMora=${campaign.diasMora}: ${countWithoutFilters || 0}`);          // Test if DiasMora is stored as text
+          const { count: countAsString } = await supabase
+            .from("POINT_Competencia")
+            .select("*", { count: "exact", head: true })
+            .eq("DiasMora", String(campaign.diasMora) as any);
+          
+          if (countAsString !== countWithoutFilters) {
+            console.log(`   ⚠️ DiasMora como string: ${countAsString || 0} registros`);
+          }          // Ahora aplicar filtros
           let query = supabase
             .from("POINT_Competencia")
             .select("idCompra", { count: "exact", head: true })
             .eq("DiasMora", campaign.diasMora);
 
           if (campaign.type === "negative") {
-            // Para mora negativa: SaldoPorVencer != 0
+            // Para mora negativa: SaldoPorVencer != 0 (diferente de cero)
             query = query.neq("SaldoPorVencer", 0);
+            console.log(`   🔹 Filtro: SaldoPorVencer != 0`);
           } else {
             // Para mora positiva: SaldoVencido != 0 AND ComprobanteEnviado IS NULL
             query = query
               .neq("SaldoVencido", 0)
               .is("ComprobanteEnviado", null);
+            console.log(`   🔹 Filtros: SaldoVencido != 0 AND ComprobanteEnviado IS NULL`);
           }
 
           const { count, error } = await query;
 
           if (error) {
-            console.error(`❌ Error consultando ${campaign.name}:`, error);
+            console.error(`   ❌ Error: ${error.message}`);
             results.push({
               name: campaign.name,
               count: 0,
               error: true,
+              errorMessage: error.message,
             });
           } else {
-            console.log(`✅ ${campaign.name}: ${count || 0} registros elegibles`);
+            const finalCount = count || 0;
+            console.log(`   ✅ Registros elegibles (con filtros): ${finalCount}`);
+            
             results.push({
               name: campaign.name,
-              count: count || 0,
+              count: finalCount,
               error: false,
+              countWithoutFilters: countWithoutFilters || 0,
             });
           }
-        } catch (err) {
-          console.error(`❌ Excepción al consultar ${campaign.name}:`, err);
+        } catch (err: any) {
+          console.error(`   ❌ Excepción: ${err.message}`);
           results.push({
             name: campaign.name,
             count: 0,
             error: true,
+            errorMessage: err.message,
           });
         }
       }
 
-      console.log("✅ Tabla de decisión calculada exitosamente");
+      const totalElegibles = results.reduce((sum, r) => sum + r.count, 0);
+      console.log(`\n📊 RESUMEN FINAL:`);
+      console.log(`   Total de registros elegibles: ${totalElegibles}`);
+      console.log(`   Campañas con datos: ${results.filter(r => r.count > 0).length}/10`);
+      console.log("🔵 ========================================\n");
+
       return results;
     },
     staleTime: 5 * 60 * 1000,
