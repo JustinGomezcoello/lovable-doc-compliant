@@ -638,15 +638,18 @@ const DayByDayTab = () => {
             .eq("DiasMora", campaign.diasMora);
 
           if (campaign.type === "negative") {
-            // Para mora negativa: SaldoPorVencer != 0 (diferente de cero)
-            query = query.neq("SaldoPorVencer", 0);
-            console.log(`   🔹 Filtro: SaldoPorVencer != 0`);
+            // Para mora negativa: SaldoPorVencer != 0 AND compromiso_pago_fecha IS NULL
+            query = query
+              .neq("SaldoPorVencer", 0)
+              .is("compromiso_pago_fecha", null);
+            console.log(`   🔹 Filtros: SaldoPorVencer != 0 AND compromiso_pago_fecha IS NULL`);
           } else {
-            // Para mora positiva: SaldoVencido != 0 AND ComprobanteEnviado IS NULL
+            // Para mora positiva: SaldoVencido != 0 AND ComprobanteEnviado IS NULL AND compromiso_pago_fecha IS NULL
             query = query
               .neq("SaldoVencido", 0)
-              .is("ComprobanteEnviado", null);
-            console.log(`   🔹 Filtros: SaldoVencido != 0 AND ComprobanteEnviado IS NULL`);
+              .is("ComprobanteEnviado", null)
+              .is("compromiso_pago_fecha", null);
+            console.log(`   🔹 Filtros: SaldoVencido != 0 AND ComprobanteEnviado IS NULL AND compromiso_pago_fecha IS NULL`);
           }
 
           const { count, error } = await query;
@@ -1094,10 +1097,10 @@ const DayByDayTab = () => {
                 <p className="font-semibold text-blue-900">Filtros aplicados:</p>
                 <ul className="list-disc list-inside text-blue-800 space-y-1">
                   <li>
-                    <strong>Mora Negativa (-5 a -1):</strong> DiasMora = [valor] AND SaldoPorVencer ≠ 0
+                    <strong>Mora Negativa (-5 a -1):</strong> 'DiasMora' = [valor] AND 'SaldoPorVencer' ≠ 0 AND 'compromiso_pago_fecha' IS NULL
                   </li>
                   <li>
-                    <strong>Mora Positiva (1 a 5):</strong> DiasMora = [valor] AND SaldoVencido ≠ 0 AND ComprobanteEnviado IS NULL
+                    <strong>Mora Positiva (1 a 5):</strong> 'DiasMora' = [valor] AND 'SaldoVencido' ≠ 0 AND 'ComprobanteEnviado' IS NULL AND 'compromiso_pago_fecha' IS NULL
                   </li>
                 </ul>
               </div>              {/* Tabla de resultados */}
