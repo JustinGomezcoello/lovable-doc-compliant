@@ -14,11 +14,16 @@ import {
   UserX,
   Users,
   RefreshCw,
+  ChevronDown,
+  ChevronRight,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import { format, eachDayOfInterval } from "date-fns";
 import MetricCard from "./MetricCard";
 import { cn } from "@/lib/utils";
 import LoadingState from "@/components/ui/loading-state";
+import { CampaignRespondersAnalysis } from "./CampaignRespondersAnalysis";
 
 const DayByDayTab = () => {
   const { toast } = useToast();
@@ -29,6 +34,15 @@ const DayByDayTab = () => {
 
   // Fecha para la parte de “Detalle por Campaña - Día Específico”
   const [campaignFilterDate, setCampaignFilterDate] = useState<Date>(new Date());
+  // Estado para controlar qué campañas están expandidas
+  const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
+  
+  // Estado para almacenar datos de respondedores por campaña
+  const [campaignResponders, setCampaignResponders] = useState<Map<string, any[]>>(new Map());
+  
+  // Estado de carga por campaña
+  const [loadingResponders, setLoadingResponders] = useState<Set<string>>(new Set());
+
   // 12 tablas de campañas en Supabase
   const campaignTables = [
     "point_mora_neg5",
@@ -500,13 +514,11 @@ const DayByDayTab = () => {
           const didRespond = responseMap.get(cedula);
           if (didRespond) campaignResponded++;
           else campaignNotResponded++;
-        });
-
-        campaign.responded = campaignResponded;
+        });        campaign.responded = campaignResponded;
         campaign.notResponded = campaignNotResponded;
 
-        // Ya no necesitamos el array de cédulas en el resultado final
-        delete campaign.cedulas;
+        // MANTENER las cédulas para el análisis detallado de respondedores
+        // NO eliminar campaign.cedulas - se usarán en CampaignRespondersAnalysis
       });
 
       // ═══════════════════════════════════════════════════════════════════════
@@ -983,8 +995,7 @@ const DayByDayTab = () => {
                             Tabla de campaña
                           </div>
                         </div>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+                      </div>                      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
                         <div className="text-center p-2 bg-blue-50 rounded">
                           <p className="text-muted-foreground text-xs">
                             WhatsApp Enviados
@@ -1022,6 +1033,16 @@ const DayByDayTab = () => {
                           </p>
                         </div>
                       </div>
+                      
+                      {/* Análisis detallado de respondedores */}
+                      {campaign.cedulas && campaign.cedulas.length > 0 && (
+                        <CampaignRespondersAnalysis
+                          campaignName={campaign.name}
+                          campaignCedulas={campaign.cedulas}
+                          totalSent={campaign.sent}
+                          responded={campaign.responded}
+                        />
+                      )}
                     </div>
                   ))}
 
