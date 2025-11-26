@@ -610,14 +610,13 @@ const DayByDayTab = () => {
             variant: "destructive",
           });
         }
-      }
-
-      const moraCampaigns = [
+      }      const moraCampaigns = [
         { name: "MORA NEGATIVA 5", diasMora: -5, type: "negative" },
         { name: "MORA NEGATIVA 4", diasMora: -4, type: "negative" },
         { name: "MORA NEGATIVA 3", diasMora: -3, type: "negative" },
         { name: "MORA NEGATIVA 2", diasMora: -2, type: "negative" },
         { name: "MORA NEGATIVA 1", diasMora: -1, type: "negative" },
+        { name: "DIAS MORA 0", diasMora: 0, type: "zero" },
         { name: "MORA POSITIVA 1", diasMora: 1, type: "positive" },
         { name: "MORA POSITIVA 2", diasMora: 2, type: "positive" },
         { name: "MORA POSITIVA 3", diasMora: 3, type: "positive" },
@@ -650,18 +649,32 @@ const DayByDayTab = () => {
             .eq("DiasMora", campaign.diasMora);
 
           if (campaign.type === "negative") {
-            // Para mora negativa: SaldoPorVencer != 0 AND compromiso_pago_fecha IS NULL
+            // Para mora negativa: 5 filtros
+            // DiasMora = -1/-2/-3/-4/-5, SaldoPorVencer > 5, compromiso_pago_fecha IS NULL, Pagado = NO, ComprobanteEnviado IS NULL
             query = query
-              .neq("SaldoPorVencer", 0)
-              .is("compromiso_pago_fecha", null);
-            console.log(`   🔹 Filtros: SaldoPorVencer != 0 AND compromiso_pago_fecha IS NULL`);
+              .gt("SaldoPorVencer", 5)
+              .is("compromiso_pago_fecha", null)
+              .eq("Pagado", "NO")
+              .is("ComprobanteEnviado", null);
+            console.log(`   🔹 Filtros: DiasMora Equals ${campaign.diasMora}, SaldoPorVencer Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null`);
+          } else if (campaign.type === "zero") {
+            // Para días mora 0: 5 filtros
+            // DiasMora = 0, SaldoPorVencer > 5, compromiso_pago_fecha IS NULL, Pagado = NO, ComprobanteEnviado IS NULL
+            query = query
+              .gt("SaldoPorVencer", 5)
+              .is("compromiso_pago_fecha", null)
+              .eq("Pagado", "NO")
+              .is("ComprobanteEnviado", null);
+            console.log(`   🔹 Filtros: DiasMora Equals 0, SaldoPorVencer Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null`);
           } else {
-            // Para mora positiva: SaldoVencido != 0 AND ComprobanteEnviado IS NULL AND compromiso_pago_fecha IS NULL
+            // Para mora positiva: 5 filtros
+            // DiasMora = 1/2/3/4/5, SaldoVencido > 5, compromiso_pago_fecha IS NULL, Pagado = NO, ComprobanteEnviado IS NULL
             query = query
-              .neq("SaldoVencido", 0)
-              .is("ComprobanteEnviado", null)
-              .is("compromiso_pago_fecha", null);
-            console.log(`   🔹 Filtros: SaldoVencido != 0 AND ComprobanteEnviado IS NULL AND compromiso_pago_fecha IS NULL`);
+              .gt("SaldoVencido", 5)
+              .is("compromiso_pago_fecha", null)
+              .eq("Pagado", "NO")
+              .is("ComprobanteEnviado", null);
+            console.log(`   🔹 Filtros: DiasMora Equals ${campaign.diasMora}, SaldoVencido Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null`);
           }
 
           const { count, error } = await query;
@@ -1112,19 +1125,21 @@ const DayByDayTab = () => {
               <LoadingState message="Consultando registros elegibles..." />
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* Explicación de filtros */}
+            <div className="space-y-4">              {/* Explicación de filtros */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm space-y-2">
-                <p className="font-semibold text-blue-900">Filtros aplicados:</p>
+                <p className="font-semibold text-blue-900">Filtros aplicados (5 filtros cada campaña):</p>
                 <ul className="list-disc list-inside text-blue-800 space-y-1">
                   <li>
-                    <strong>Mora Negativa (-5 a -1):</strong> 'DiasMora' = [valor] AND 'SaldoPorVencer' ≠ 0 AND 'compromiso_pago_fecha' IS NULL
+                    <strong>Mora Negativa (-5 a -1):</strong> DiasMora Equals -1/-2/-3/-4/-5, SaldoPorVencer Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null
                   </li>
                   <li>
-                    <strong>Mora Positiva (1 a 5):</strong> 'DiasMora' = [valor] AND 'SaldoVencido' ≠ 0 AND 'ComprobanteEnviado' IS NULL AND 'compromiso_pago_fecha' IS NULL
+                    <strong>Días Mora 0:</strong> DiasMora Equals 0, SaldoPorVencer Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null
+                  </li>
+                  <li>
+                    <strong>Mora Positiva (1 a 5):</strong> DiasMora Equals 1/2/3/4/5, SaldoVencido Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null
                   </li>
                 </ul>
-              </div>              {/* Tabla de resultados */}
+              </div>{/* Tabla de resultados */}
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>

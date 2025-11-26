@@ -2,7 +2,7 @@
 
 ## 📊 Descripción General
 
-Se agregó una nueva sección al final de la pestaña **"DayByDayTab"** que muestra una **Tabla de Decisión** para las 10 campañas de mora. Esta tabla ayuda a decidir qué campañas vale la pena ejecutar al mostrar cuántos registros elegibles existen en la tabla `POINT_Competencia` para cada campaña.
+Se agregó una nueva sección al final de la pestaña **"DayByDayTab"** que muestra una **Tabla de Decisión** para las **11 campañas de mora** (incluye la nueva campaña "DIAS MORA 0"). Esta tabla ayuda a decidir qué campañas vale la pena ejecutar al mostrar cuántos registros elegibles existen en la tabla `POINT_Competencia` para cada campaña, aplicando **5 filtros por campaña** para garantizar precisión.
 
 ---
 
@@ -18,7 +18,7 @@ Esta tabla responde estas preguntas en tiempo real consultando la base de datos 
 
 ## 🔍 Campañas Incluidas
 
-La tabla muestra las siguientes **10 campañas de mora**:
+La tabla muestra las siguientes **11 campañas de mora**:
 
 ### Mora Negativa (5 campañas)
 1. **MORA NEGATIVA 5** → `DiasMora = -5`
@@ -27,42 +27,72 @@ La tabla muestra las siguientes **10 campañas de mora**:
 4. **MORA NEGATIVA 2** → `DiasMora = -2`
 5. **MORA NEGATIVA 1** → `DiasMora = -1`
 
+### **🆕 Días Mora 0 (1 campaña)**
+6. **DIAS MORA 0** → `DiasMora = 0`
+
 ### Mora Positiva (5 campañas)
-6. **MORA POSITIVA 1** → `DiasMora = 1`
-7. **MORA POSITIVA 2** → `DiasMora = 2`
-8. **MORA POSITIVA 3** → `DiasMora = 3`
-9. **MORA POSITIVA 4** → `DiasMora = 4`
-10. **MORA POSITIVA 5** → `DiasMora = 5`
+7. **MORA POSITIVA 1** → `DiasMora = 1`
+8. **MORA POSITIVA 2** → `DiasMora = 2`
+9. **MORA POSITIVA 3** → `DiasMora = 3`
+10. **MORA POSITIVA 4** → `DiasMora = 4`
+11. **MORA POSITIVA 5** → `DiasMora = 5`
 
 ---
 
 ## 📋 Filtros Aplicados
 
-Los filtros varían según el tipo de campaña:
+Los filtros varían según el tipo de campaña. **Todas las campañas aplican 5 filtros:**
 
 ### Para Campañas de Mora Negativa (-5 a -1)
 ```sql
 SELECT COUNT(*) FROM POINT_Competencia
 WHERE DiasMora = [valor negativo]
-  AND SaldoPorVencer != 0
+  AND SaldoPorVencer > 5
+  AND compromiso_pago_fecha IS NULL
+  AND Pagado = 'NO'
+  AND ComprobanteEnviado IS NULL
 ```
 
-**Lógica:**
-- Solo se cuentan registros donde el cliente tiene días de mora negativos (previo al vencimiento)
-- Y tiene un saldo por vencer diferente de cero
+**Lógica (5 filtros):**
+- `DiasMora Equals` -1, -2, -3, -4 o -5 (previo al vencimiento)
+- `SaldoPorVencer Greater Than 5` (excluye deudas menores a $5)
+- `compromiso_pago_fecha Is null` (no tienen compromiso de pago registrado)
+- `Pagado Equals NO` (no han pagado)
+- `ComprobanteEnviado Is null` (no han enviado comprobante)
+
+### 🆕 Para Campaña Días Mora 0
+```sql
+SELECT COUNT(*) FROM POINT_Competencia
+WHERE DiasMora = 0
+  AND SaldoPorVencer > 5
+  AND compromiso_pago_fecha IS NULL
+  AND Pagado = 'NO'
+  AND ComprobanteEnviado IS NULL
+```
+
+**Lógica (5 filtros):**
+- `DiasMora Equals 0` (en punto exacto de vencimiento)
+- `SaldoPorVencer Greater Than 5` (excluye deudas menores a $5)
+- `compromiso_pago_fecha Is null` (no tienen compromiso de pago registrado)
+- `Pagado Equals NO` (no han pagado)
+- `ComprobanteEnviado Is null` (no han enviado comprobante)
 
 ### Para Campañas de Mora Positiva (1 a 5)
 ```sql
 SELECT COUNT(*) FROM POINT_Competencia
 WHERE DiasMora = [valor positivo]
-  AND SaldoVencido != 0
+  AND SaldoVencido > 5
+  AND compromiso_pago_fecha IS NULL
+  AND Pagado = 'NO'
   AND ComprobanteEnviado IS NULL
 ```
 
-**Lógica:**
-- Solo se cuentan registros donde el cliente tiene días de mora positivos (después del vencimiento)
-- Y tiene un saldo vencido diferente de cero
-- Y NO se le ha enviado comprobante (para evitar duplicados)
+**Lógica (5 filtros):**
+- `DiasMora Equals` 1, 2, 3, 4 o 5 (después del vencimiento)
+- `SaldoVencido Greater Than 5` (excluye deudas menores a $5)
+- `compromiso_pago_fecha Is null` (no tienen compromiso de pago registrado)
+- `Pagado Equals NO` (no han pagado)
+- `ComprobanteEnviado Is null` (no han enviado comprobante)
 
 ---
 
