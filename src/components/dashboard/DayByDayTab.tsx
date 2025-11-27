@@ -36,10 +36,10 @@ const DayByDayTab = () => {
   const [campaignFilterDate, setCampaignFilterDate] = useState<Date>(new Date());
   // Estado para controlar qué campañas están expandidas
   const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
-  
+
   // Estado para almacenar datos de respondedores por campaña
   const [campaignResponders, setCampaignResponders] = useState<Map<string, any[]>>(new Map());
-  
+
   // Estado de carga por campaña
   const [loadingResponders, setLoadingResponders] = useState<Set<string>>(new Set());
 
@@ -243,7 +243,7 @@ const DayByDayTab = () => {
 
       // Eliminar duplicados para obtener cédulas únicas del rango
       const uniqueCedulas = Array.from(new Set(allCedulas));
-      
+
       console.log("✅ PASO 1 completado:", {
         totalCedulasExtraidas: allCedulas.length,
         cedulasUnicasRango: uniqueCedulas.length,
@@ -259,7 +259,7 @@ const DayByDayTab = () => {
 
       console.log("🔹 PASO 2: Calculando costos...");
       const costoTotal = (totalSent * COSTO_POR_MENSAJE).toFixed(2);
-      
+
       console.log("✅ PASO 2 completado:", {
         totalWhatsAppEnviados: totalSent,
         costoTotal: `$${costoTotal}`,
@@ -288,7 +288,7 @@ const DayByDayTab = () => {
       // ═══════════════════════════════════════════════════════════════════════
 
       console.log("🔹 PASO 4: Contando métricas finales...");
-      
+
       let respondieron = 0;
       let noRespondieron = 0;
 
@@ -318,7 +318,7 @@ const DayByDayTab = () => {
       // ═══════════════════════════════════════════════════════════════════════
 
       console.log("🔹 PASO 5: Validando invariante...");
-      
+
       const suma = respondieron + noRespondieron;
       const esValido = suma === uniqueCedulas.length;
 
@@ -364,7 +364,7 @@ const DayByDayTab = () => {
 
       const campaigns: any[] = [];
       let totalSent = 0;
-      let allCedulasDia: string[] = [];      console.log("🔹 PASO 1 (DÍA): Extrayendo cédulas de las 12 tablas para el día...");
+      let allCedulasDia: string[] = []; console.log("🔹 PASO 1 (DÍA): Extrayendo cédulas de las 12 tablas para el día...");
 
       for (const tableName of campaignTables) {
         try {
@@ -467,7 +467,7 @@ const DayByDayTab = () => {
       // PASO 2 (DÍA): COSTO TOTAL DEL DÍA
       // ═══════════════════════════════════════════════════════════════════════
       const totalCostDia = (totalSent * COSTO_POR_MENSAJE).toFixed(2);
-      
+
       console.log("✅ PASO 2 (DÍA) completado:", {
         totalWhatsAppEnviadosDia: totalSent,
         costoTotalDia: `$${totalCostDia}`
@@ -484,7 +484,7 @@ const DayByDayTab = () => {
       // ═══════════════════════════════════════════════════════════════════════
       // Resumen global del día (por cédula única, SIN duplicar por campaña)
       console.log("🔹 PASO 4 (DÍA): Contando métricas globales del día...");
-      
+
       let overallRespondedDia = 0;
       let overallNotRespondedDia = 0;
 
@@ -505,7 +505,7 @@ const DayByDayTab = () => {
       // ═══════════════════════════════════════════════════════════════════════
       // Detalle por campaña usando la MISMA REGLA ÚNICA
       console.log("🔹 Calculando métricas por campaña...");
-      
+
       campaigns.forEach((campaign: any) => {
         let campaignResponded = 0;
         let campaignNotResponded = 0;
@@ -514,7 +514,7 @@ const DayByDayTab = () => {
           const didRespond = responseMap.get(cedula);
           if (didRespond) campaignResponded++;
           else campaignNotResponded++;
-        });        campaign.responded = campaignResponded;
+        }); campaign.responded = campaignResponded;
         campaign.notResponded = campaignNotResponded;
 
         // MANTENER las cédulas para el análisis detallado de respondedores
@@ -525,7 +525,7 @@ const DayByDayTab = () => {
       // PASO 5 (DÍA): VALIDACIÓN DE INVARIANTE
       // ═══════════════════════════════════════════════════════════════════════
       console.log("🔹 PASO 5 (DÍA): Validando invariante...");
-      
+
       const sumaDia = overallRespondedDia + overallNotRespondedDia;
       const esValidoDia = sumaDia === uniqueCedulasDia.length;
 
@@ -557,130 +557,89 @@ const DayByDayTab = () => {
     },
     enabled: !!campaignFilterDate,
     staleTime: 5 * 60 * 1000,
-  });  // ═══════════════════════════════════════════════════════════════════════════════
-  //  📊 TABLA DE DECISIÓN - CONTEO DE REGISTROS ELEGIBLES EN POINT_COMPETENCIA
-  //  Muestra cuántos registros hay disponibles para enviar cada campaña
-  // ═══════════════════════════════════════════════════════════════════════════════
-  
+  });
+
+  // Definición de campañas de mora para la Tabla de Decisión
+  const moraCampaigns = [
+    { name: "MORA NEGATIVA 6", diasMora: -6, type: "negative" },
+    { name: "MORA NEGATIVA 5", diasMora: -5, type: "negative" },
+    { name: "MORA NEGATIVA 4", diasMora: -4, type: "negative" },
+    { name: "MORA NEGATIVA 3", diasMora: -3, type: "negative" },
+    { name: "MORA NEGATIVA 2", diasMora: -2, type: "negative" },
+    { name: "MORA NEGATIVA 1", diasMora: -1, type: "negative" },
+    { name: "DIAS MORA 0", diasMora: 0, type: "zero" },
+    { name: "MORA POSITIVA 1", diasMora: 1, type: "positive" },
+    { name: "MORA POSITIVA 2", diasMora: 2, type: "positive" },
+    { name: "MORA POSITIVA 3", diasMora: 3, type: "positive" },
+    { name: "MORA POSITIVA 4", diasMora: 4, type: "positive" },
+    { name: "MORA POSITIVA 5", diasMora: 5, type: "positive" },
+    { name: "MORA POSITIVA 6", diasMora: 6, type: "positive" },
+  ];
+
   const { data: decisionTableData, isLoading: isLoadingDecisionTable, refetch: refetchDecisionTable } = useQuery({
     queryKey: ["decision-table-mora-campaigns"],
-    queryFn: async () => {      console.log("🔵 ========================================");
+    queryFn: async () => {
+      console.log("🔵 ========================================");
       console.log("🔵 TABLA DE DECISIÓN - CAMPAÑAS DE MORA");
       console.log("🔵 ========================================");
 
+      const results: any[] = [];
+
       // Primero, verificar que la tabla tenga datos
-      const { count: totalCount, error: countError, data: testData } = await supabase
+      const { count: totalCount, error: countError } = await supabase
         .from("POINT_Competencia")
         .select("*", { count: "exact", head: true });
 
-      console.log(`📊 Total de registros en POINT_Competencia: ${totalCount || 0}`);
-      
       if (countError) {
         console.error("❌ ERROR al contar registros:", countError);
-        console.error("   Código:", countError.code);
-        console.error("   Mensaje:", countError.message);
-        console.error("   Detalles:", countError.details);
-        console.error("   Hint:", countError.hint);
-      }
-
-      // Test alternativo: intentar obtener un registro
-      const { data: sampleData, error: sampleError } = await supabase
-        .from("POINT_Competencia")
-        .select("idCompra, DiasMora, SaldoPorVencer")
-        .limit(1);
-
-      if (sampleError) {
-        console.error("❌ ERROR al obtener muestra:", sampleError);
-        console.error("   Esto probablemente es un problema de RLS (Row Level Security)");
         toast({
-          title: "Error de permisos",
-          description: "No se puede acceder a POINT_Competencia. Verifica las políticas RLS.",
+          title: "Error de conexión",
+          description: "No se pudo conectar con la base de datos.",
           variant: "destructive",
         });
-      } else {
-        console.log("✅ Muestra obtenida:", sampleData);
       }
 
-      if (!totalCount || totalCount === 0) {
-        console.warn("⚠️ La tabla POINT_Competencia no tiene datos o RLS está bloqueando el acceso");
-        if (!countError && !sampleError) {
-          toast({
-            title: "Sin datos",
-            description: "La tabla POINT_Competencia está vacía",
-            variant: "destructive",
-          });
-        }
-      }      const moraCampaigns = [
-        { name: "MORA NEGATIVA 5", diasMora: -5, type: "negative" },
-        { name: "MORA NEGATIVA 4", diasMora: -4, type: "negative" },
-        { name: "MORA NEGATIVA 3", diasMora: -3, type: "negative" },
-        { name: "MORA NEGATIVA 2", diasMora: -2, type: "negative" },
-        { name: "MORA NEGATIVA 1", diasMora: -1, type: "negative" },
-        { name: "DIAS MORA 0", diasMora: 0, type: "zero" },
-        { name: "MORA POSITIVA 1", diasMora: 1, type: "positive" },
-        { name: "MORA POSITIVA 2", diasMora: 2, type: "positive" },
-        { name: "MORA POSITIVA 3", diasMora: 3, type: "positive" },
-        { name: "MORA POSITIVA 4", diasMora: 4, type: "positive" },
-        { name: "MORA POSITIVA 5", diasMora: 5, type: "positive" },
-      ];
+      // Si no hay datos en absoluto, devolver ceros
+      if (!totalCount) {
+        console.warn("⚠️ La tabla POINT_Competencia está vacía.");
+        return moraCampaigns.map(c => ({
+          name: c.name,
+          count: 0,
+          error: false,
+          countWithoutFilters: 0
+        }));
+      }
 
-      const results = [];
-
+      // Iterar sobre cada campaña
       for (const campaign of moraCampaigns) {
         try {
-          console.log(`\n🔍 Consultando: ${campaign.name} (DiasMora=${campaign.diasMora})`);
-          
-          // Primero verificar cuántos registros hay para ese DiasMora SIN filtros
-          const { count: countWithoutFilters } = await supabase
-            .from("POINT_Competencia")
-            .select("*", { count: "exact", head: true })
-            .eq("DiasMora", campaign.diasMora);          console.log(`   📌 Registros con DiasMora=${campaign.diasMora}: ${countWithoutFilters || 0}`);          // Test if DiasMora is stored as text
-          const { count: countAsString } = await supabase
-            .from("POINT_Competencia")
-            .select("*", { count: "exact", head: true })
-            .eq("DiasMora", String(campaign.diasMora) as any);
-          
-          if (countAsString !== countWithoutFilters) {
-            console.log(`   ⚠️ DiasMora como string: ${countAsString || 0} registros`);
-          }          // Ahora aplicar filtros
+          // Construir query base
           let query = supabase
             .from("POINT_Competencia")
-            .select("idCompra", { count: "exact", head: true })
+            .select("*", { count: "exact", head: true })
             .eq("DiasMora", campaign.diasMora);
 
-          if (campaign.type === "negative") {
-            // Para mora negativa: 5 filtros
-            // DiasMora = -1/-2/-3/-4/-5, SaldoPorVencer > 5, compromiso_pago_fecha IS NULL, Pagado = NO, ComprobanteEnviado IS NULL
-            query = query
-              .gt("SaldoPorVencer", 5)
-              .is("compromiso_pago_fecha", null)
-              .eq("Pagado", "NO")
-              .is("ComprobanteEnviado", null);
-            console.log(`   🔹 Filtros: DiasMora Equals ${campaign.diasMora}, SaldoPorVencer Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null`);
-          } else if (campaign.type === "zero") {
-            // Para días mora 0: 5 filtros
-            // DiasMora = 0, SaldoPorVencer > 5, compromiso_pago_fecha IS NULL, Pagado = NO, ComprobanteEnviado IS NULL
-            query = query
-              .gt("SaldoPorVencer", 5)
-              .is("compromiso_pago_fecha", null)
-              .eq("Pagado", "NO")
-              .is("ComprobanteEnviado", null);
-            console.log(`   🔹 Filtros: DiasMora Equals 0, SaldoPorVencer Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null`);
+          // Filtros específicos por tipo
+          if (campaign.type === "negative" || campaign.type === "zero") {
+            query = query.gt("SaldoPorVencer", 5);
           } else {
-            // Para mora positiva: 5 filtros
-            // DiasMora = 1/2/3/4/5, SaldoVencido > 5, compromiso_pago_fecha IS NULL, Pagado = NO, ComprobanteEnviado IS NULL
-            query = query
-              .gt("SaldoVencido", 5)
-              .is("compromiso_pago_fecha", null)
-              .eq("Pagado", "NO")
-              .is("ComprobanteEnviado", null);
-            console.log(`   🔹 Filtros: DiasMora Equals ${campaign.diasMora}, SaldoVencido Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null`);
+            query = query.gt("SaldoVencido", 5);
           }
+
+          // Filtros comunes
+          query = query
+            .neq("Pagado", "SI")
+            .neq("Compromiso", "SI")
+            .neq("Equivocado", "SI")
+            .is("GestionHumana", null)
+            .is("ComprobanteEnviado", null)
+            .neq("DiceQueYaPago", "SI")
+            .is("compromiso_pago_fecha", null);
 
           const { count, error } = await query;
 
           if (error) {
-            console.error(`   ❌ Error: ${error.message}`);
+            console.error(`❌ Error en campaña ${campaign.name}:`, error);
             results.push({
               name: campaign.name,
               count: 0,
@@ -688,18 +647,15 @@ const DayByDayTab = () => {
               errorMessage: error.message,
             });
           } else {
-            const finalCount = count || 0;
-            console.log(`   ✅ Registros elegibles (con filtros): ${finalCount}`);
-            
+            console.log(`   ✅ ${campaign.name}: ${count} registros`);
             results.push({
               name: campaign.name,
-              count: finalCount,
+              count: count || 0,
               error: false,
-              countWithoutFilters: countWithoutFilters || 0,
             });
           }
         } catch (err: any) {
-          console.error(`   ❌ Excepción: ${err.message}`);
+          console.error(`❌ Excepción en campaña ${campaign.name}:`, err);
           results.push({
             name: campaign.name,
             count: 0,
@@ -712,7 +668,6 @@ const DayByDayTab = () => {
       const totalElegibles = results.reduce((sum, r) => sum + r.count, 0);
       console.log(`\n📊 RESUMEN FINAL:`);
       console.log(`   Total de registros elegibles: ${totalElegibles}`);
-      console.log(`   Campañas con datos: ${results.filter(r => r.count > 0).length}/10`);
       console.log("🔵 ========================================\n");
 
       return results;
@@ -821,17 +776,17 @@ const DayByDayTab = () => {
             </ul>
           </div>
         </CardContent>
-      </Card>
+      </Card >
 
       {/* ========================================= */}
       {/*     MÉTRICAS POR DÍA (RANGO DE FECHAS)   */}
       {/* ========================================= */}
       <div className="flex items-center justify-between">        <div>
-          <h2 className="text-2xl font-bold mb-2">Métricas por Día</h2>
-          <p className="text-muted-foreground">
-            Analiza el rendimiento por rango de fechas de las 12 campañas
-          </p>
-        </div>
+        <h2 className="text-2xl font-bold mb-2">Métricas por Día</h2>
+        <p className="text-muted-foreground">
+          Analiza el rendimiento por rango de fechas de las 12 campañas
+        </p>
+      </div>
 
         <div className="flex gap-2">
           <Popover>
@@ -872,54 +827,56 @@ const DayByDayTab = () => {
         </div>
       </div>
 
-      {isLoading ? (
-        <LoadingState
-          title="Consultando campañas..."
-          message="Obteniendo la información de mensajes enviados, personas contactadas y respuestas en el rango seleccionado."
-          skeletonCount={5}
-        />
-      ) : (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <MetricCard
-              title="WhatsApp Enviados"
-              value={dayMetrics?.totalSent?.toLocaleString() || "0"}
-              icon={Send}
-              description={`Mensajes enviados entre ${format(
-                startDate,
-                "dd/MM/yyyy"
-              )} y ${format(endDate, "dd/MM/yyyy")}`}
-            />
-            <MetricCard
-              title="Costo Total"
-              value={`$${dayMetrics?.totalCost || "0.00"}`}
-              icon={DollarSign}
-              description="Estimado: mensajes enviados × $0.014"
-            />
-            <MetricCard
-              title="Respondieron"
-              value={dayMetrics?.responded?.toLocaleString() || "0"}
-              icon={UserCheck}
-              description={`${dayMetrics?.responseRate || "0"}% de las personas contactadas en el rango`}
-            />
-          </div>
+      {
+        isLoading ? (
+          <LoadingState
+            title="Consultando campañas..."
+            message="Obteniendo la información de mensajes enviados, personas contactadas y respuestas en el rango seleccionado."
+            skeletonCount={5}
+          />
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <MetricCard
+                title="WhatsApp Enviados"
+                value={dayMetrics?.totalSent?.toLocaleString() || "0"}
+                icon={Send}
+                description={`Mensajes enviados entre ${format(
+                  startDate,
+                  "dd/MM/yyyy"
+                )} y ${format(endDate, "dd/MM/yyyy")}`}
+              />
+              <MetricCard
+                title="Costo Total"
+                value={`$${dayMetrics?.totalCost || "0.00"}`}
+                icon={DollarSign}
+                description="Estimado: mensajes enviados × $0.014"
+              />
+              <MetricCard
+                title="Respondieron"
+                value={dayMetrics?.responded?.toLocaleString() || "0"}
+                icon={UserCheck}
+                description={`${dayMetrics?.responseRate || "0"}% de las personas contactadas en el rango`}
+              />
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <MetricCard
-              title="No Respondieron"
-              value={dayMetrics?.notResponded?.toLocaleString() || "0"}
-              icon={UserX}
-              description="Personas contactadas que no han respondido en el rango"
-            />
-            <MetricCard
-              title="Cédulas Únicas (Rango)"
-              value={dayMetrics?.totalCedulasUnicas?.toLocaleString() || "0"}
-              icon={Users}
-              description="Total de personas distintas contactadas en todas las campañas"
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <MetricCard
+                title="No Respondieron"
+                value={dayMetrics?.notResponded?.toLocaleString() || "0"}
+                icon={UserX}
+                description="Personas contactadas que no han respondido en el rango"
+              />
+              <MetricCard
+                title="Cédulas Únicas (Rango)"
+                value={dayMetrics?.totalCedulasUnicas?.toLocaleString() || "0"}
+                icon={Users}
+                description="Total de personas distintas contactadas en todas las campañas"
+              />
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* ================================================== */}
       {/*   DETALLE POR CAMPAÑA - DÍA ESPECÍFICO (8 TABLAS)  */}
@@ -1046,7 +1003,7 @@ const DayByDayTab = () => {
                           </p>
                         </div>
                       </div>
-                      
+
                       {/* Análisis detallado de respondedores */}
                       {campaign.cedulas && campaign.cedulas.length > 0 && (
                         <CampaignRespondersAnalysis
@@ -1152,7 +1109,7 @@ const DayByDayTab = () => {
                     {decisionTableData?.map((row: any, idx: number) => {
                       const isNegative = row.name.includes("NEGATIVA");
                       const hasRecords = row.count > 0;
-                      
+
                       return (
                         <tr
                           key={idx}
@@ -1215,7 +1172,7 @@ const DayByDayTab = () => {
           )}
         </CardContent>
       </Card>
-    </div>
+    </div >
   );
 };
 

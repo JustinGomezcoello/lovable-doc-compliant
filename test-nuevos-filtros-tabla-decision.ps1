@@ -12,66 +12,90 @@ Write-Host ""
 
 $testCases = @(
     @{
+        Name = "MORA NEGATIVA 6"
+        DiasMora = -6
+        Type = "negative"
+        ExpectedFilters = @(
+            "DiasMora Equals -6",
+            "SaldoPorVencer Greater Than 5",
+            "Pagado Not Equals SI",
+            "Compromiso Not Equals SI",
+            "Equivocado Not Equals SI",
+            "GestionHumana Is null",
+            "ComprobanteEnviado Is null",
+            "DiceQueYaPago Not Equals SI",
+            "compromiso_pago_fecha Is null"
+        )
+        SQLQuery = @"
+SELECT COUNT(*) 
+FROM POINT_Competencia
+WHERE DiasMora = -6
+  AND SaldoPorVencer > 5
+  AND Pagado != 'SI'
+  AND Compromiso != 'SI'
+  AND Equivocado != 'SI'
+  AND GestionHumana IS NULL
+  AND ComprobanteEnviado IS NULL
+  AND DiceQueYaPago != 'SI'
+  AND compromiso_pago_fecha IS NULL;
+"@
+    },
+    @{
         Name = "MORA NEGATIVA 5"
         DiasMora = -5
         Type = "negative"
         ExpectedFilters = @(
             "DiasMora Equals -5",
             "SaldoPorVencer Greater Than 5",
-            "compromiso_pago_fecha Is null",
-            "Pagado Equals NO",
-            "ComprobanteEnviado Is null"
+            "Pagado Not Equals SI",
+            "Compromiso Not Equals SI",
+            "Equivocado Not Equals SI",
+            "GestionHumana Is null",
+            "ComprobanteEnviado Is null",
+            "DiceQueYaPago Not Equals SI",
+            "compromiso_pago_fecha Is null"
         )
         SQLQuery = @"
 SELECT COUNT(*) 
 FROM POINT_Competencia
 WHERE DiasMora = -5
   AND SaldoPorVencer > 5
-  AND compromiso_pago_fecha IS NULL
-  AND Pagado = 'NO'
-  AND ComprobanteEnviado IS NULL;
+  AND Pagado != 'SI'
+  AND Compromiso != 'SI'
+  AND Equivocado != 'SI'
+  AND GestionHumana IS NULL
+  AND ComprobanteEnviado IS NULL
+  AND DiceQueYaPago != 'SI'
+  AND compromiso_pago_fecha IS NULL;
 "@
     },
     @{
-        Name = "MORA NEGATIVA 1"
-        DiasMora = -1
-        Type = "negative"
-        ExpectedFilters = @(
-            "DiasMora Equals -1",
-            "SaldoPorVencer Greater Than 5",
-            "compromiso_pago_fecha Is null",
-            "Pagado Equals NO",
-            "ComprobanteEnviado Is null"
-        )
-        SQLQuery = @"
-SELECT COUNT(*) 
-FROM POINT_Competencia
-WHERE DiasMora = -1
-  AND SaldoPorVencer > 5
-  AND compromiso_pago_fecha IS NULL
-  AND Pagado = 'NO'
-  AND ComprobanteEnviado IS NULL;
-"@
-    },
-    @{
-        Name = "DIAS MORA 0 🆕"
+        Name = "DIAS MORA 0"
         DiasMora = 0
         Type = "zero"
         ExpectedFilters = @(
             "DiasMora Equals 0",
             "SaldoPorVencer Greater Than 5",
-            "compromiso_pago_fecha Is null",
-            "Pagado Equals NO",
-            "ComprobanteEnviado Is null"
+            "Pagado Not Equals SI",
+            "Compromiso Not Equals SI",
+            "Equivocado Not Equals SI",
+            "GestionHumana Is null",
+            "ComprobanteEnviado Is null",
+            "DiceQueYaPago Not Equals SI",
+            "compromiso_pago_fecha Is null"
         )
         SQLQuery = @"
 SELECT COUNT(*) 
 FROM POINT_Competencia
 WHERE DiasMora = 0
   AND SaldoPorVencer > 5
-  AND compromiso_pago_fecha IS NULL
-  AND Pagado = 'NO'
-  AND ComprobanteEnviado IS NULL;
+  AND Pagado != 'SI'
+  AND Compromiso != 'SI'
+  AND Equivocado != 'SI'
+  AND GestionHumana IS NULL
+  AND ComprobanteEnviado IS NULL
+  AND DiceQueYaPago != 'SI'
+  AND compromiso_pago_fecha IS NULL;
 "@
     },
     @{
@@ -81,39 +105,55 @@ WHERE DiasMora = 0
         ExpectedFilters = @(
             "DiasMora Equals 1",
             "SaldoVencido Greater Than 5",
-            "compromiso_pago_fecha Is null",
-            "Pagado Equals NO",
-            "ComprobanteEnviado Is null"
+            "Pagado Not Equals SI",
+            "Compromiso Not Equals SI",
+            "Equivocado Not Equals SI",
+            "GestionHumana Is null",
+            "ComprobanteEnviado Is null",
+            "DiceQueYaPago Not Equals SI",
+            "compromiso_pago_fecha Is null"
         )
         SQLQuery = @"
 SELECT COUNT(*) 
 FROM POINT_Competencia
 WHERE DiasMora = 1
   AND SaldoVencido > 5
-  AND compromiso_pago_fecha IS NULL
-  AND Pagado = 'NO'
-  AND ComprobanteEnviado IS NULL;
+  AND Pagado != 'SI'
+  AND Compromiso != 'SI'
+  AND Equivocado != 'SI'
+  AND GestionHumana IS NULL
+  AND ComprobanteEnviado IS NULL
+  AND DiceQueYaPago != 'SI'
+  AND compromiso_pago_fecha IS NULL;
 "@
     },
     @{
-        Name = "MORA POSITIVA 5"
-        DiasMora = 5
+        Name = "MORA POSITIVA 6"
+        DiasMora = 6
         Type = "positive"
         ExpectedFilters = @(
-            "DiasMora Equals 5",
+            "DiasMora Equals 6",
             "SaldoVencido Greater Than 5",
-            "compromiso_pago_fecha Is null",
-            "Pagado Equals NO",
-            "ComprobanteEnviado Is null"
+            "Pagado Not Equals SI",
+            "Compromiso Not Equals SI",
+            "Equivocado Not Equals SI",
+            "GestionHumana Is null",
+            "ComprobanteEnviado Is null",
+            "DiceQueYaPago Not Equals SI",
+            "compromiso_pago_fecha Is null"
         )
         SQLQuery = @"
 SELECT COUNT(*) 
 FROM POINT_Competencia
-WHERE DiasMora = 5
+WHERE DiasMora = 6
   AND SaldoVencido > 5
-  AND compromiso_pago_fecha IS NULL
-  AND Pagado = 'NO'
-  AND ComprobanteEnviado IS NULL;
+  AND Pagado != 'SI'
+  AND Compromiso != 'SI'
+  AND Equivocado != 'SI'
+  AND GestionHumana IS NULL
+  AND ComprobanteEnviado IS NULL
+  AND DiceQueYaPago != 'SI'
+  AND compromiso_pago_fecha IS NULL;
 "@
     }
 )

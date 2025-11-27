@@ -19,6 +19,7 @@ interface ResponderData {
   LlamarOtraVez: string | null;
   TipoDePago: string | null;
   compromiso_pago_fecha: string | null;
+  EstadoEtiqueta: string | null;
 }
 
 // Interfaz para análisis y recomendación
@@ -43,11 +44,11 @@ interface CampaignRespondersAnalysisProps {
   responded: number;
 }
 
-export const CampaignRespondersAnalysis = ({ 
-  campaignName, 
+export const CampaignRespondersAnalysis = ({
+  campaignName,
   campaignCedulas,
   totalSent,
-  responded 
+  responded
 }: CampaignRespondersAnalysisProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [analysis, setAnalysis] = useState<CampaignAnalysis | null>(null);
@@ -74,28 +75,31 @@ export const CampaignRespondersAnalysis = ({
    */
   const fetchRespondersDetails = async () => {
     if (isLoading || analysis) return; // Evitar múltiples llamadas
-    
+
     setIsLoading(true);
     console.log(`🔍 Obteniendo detalles de respondedores para: ${campaignName}`);
-    
+
     // Extraer DiasMora de la campaña
     const campaignDiasMora = getCampaignDiasMora(campaignName);
     console.log(`   📍 DiasMora de la campaña: ${campaignDiasMora}`);
-    
+
     try {
       // Consultar POINT_Competencia para las cédulas de la campaña
       const CHUNK_SIZE = 500;
       const allResponders: ResponderData[] = [];
-      
+
       // Convertir cédulas a números para consulta
       const numericCedulas = campaignCedulas.map(c => {
         const cleaned = c.replace(/\D/g, "");
         return cleaned ? parseInt(cleaned, 10) : null;
       }).filter(n => n !== null && !isNaN(n));
 
-      console.log(`   📊 Total de cédulas a consultar: ${numericCedulas.length}`);      for (let i = 0; i < numericCedulas.length; i += CHUNK_SIZE) {
+      console.log(`   📊 Total de cédulas a consultar: ${numericCedulas.length}`);
+
+      for (let i = 0; i < numericCedulas.length; i += CHUNK_SIZE) {
         const chunk = numericCedulas.slice(i, i + CHUNK_SIZE);
-          // Construir query base
+
+        // Construir query base
         let query = supabase
           .from("POINT_Competencia")
           .select(`
@@ -111,17 +115,18 @@ export const CampaignRespondersAnalysis = ({
             LlamarOtraVez,
             TipoDePago,
             compromiso_pago_fecha,
-            conversation_id
+            conversation_id,
+            EstadoEtiqueta
           `)
           .in("Cedula", chunk)
           .not("conversation_id", "is", null)
           .neq("conversation_id", 0);
-        
-        // ✅ FILTRO CRÍTICO: Solo mostrar registros con el DiasMora de la campaña
-        if (campaignDiasMora !== null) {
-          query = query.eq("DiasMora", campaignDiasMora);
-          console.log(`   🔹 Filtrando por DiasMora = ${campaignDiasMora}`);
-        }
+
+        // ⚠️ REMOVIDO: No filtrar por DiasMora aquí para evitar discrepancias
+        // si el usuario cambió de mora pero sigue siendo el mismo respondedor
+        // if (campaignDiasMora !== null) {
+        //   query = query.eq("DiasMora", campaignDiasMora);
+        // }
 
         const { data, error } = await query;
 
@@ -134,54 +139,84 @@ export const CampaignRespondersAnalysis = ({
           allResponders.push(...data);
           console.log(`   ✅ Chunk ${i / CHUNK_SIZE + 1}: ${data.length} respondedores`);
         }
-      }      console.log(`   🎯 Total respondedores encontrados (filtrados por DiasMora): ${allResponders.length}`);
+      }
 
-      // ✅ ELIMINAR DUPLICADOS POR CELULAR (mantener solo uno por persona)
-      // Si hay múltiples registros con el mismo celular y DiasMora, mantener el primero
-      const uniqueResponders = Array.from(
-        new Map(allResponders.map(r => [r.Celular, r])).values()
-      );
-      
-      if (uniqueResponders.length < allResponders.length) {
-        console.log(`   🔹 Duplicados eliminados: ${allResponders.length - uniqueResponders.length}`);
-        console.log(`   🎯 Respondedores únicos: ${uniqueResponders.length}`);
-      }      // ═══════════════════════════════════════════════════════════════════
-      // CALCULAR MÉTRICAS RELEVANTES SEGÚN TIPO DE CAMPAÑA
-      // ═══════════════════════════════════════════════════════════════════
-      const totalResponders = uniqueResponders.length;
-      
-      // Identificar tipo de campaña
+      console.log(`   🎯 Total respondedores encontrados: ${allResponders.length}`);
+
+      // Identificar tipo de campaña (MOVIDO ARRIBA para usar en deduplicación)
       const isNegativeCampaign = campaignDiasMora !== null && campaignDiasMora < 0;
       const isPositiveCampaign = campaignDiasMora !== null && campaignDiasMora > 0;
       const isCompromisoPago = campaignName.includes("COMPROMISO DE PAGO");
       const isReactivacion = campaignName.includes("REACTIVACIÓN") || campaignName.includes("REACTIVACION");
+
+      // ✅ ELIMINAR DUPLICADOS POR CÉDULA (mantener solo uno por persona)
+      // Lógica: Agrupar por Cédula y priorizar el registro que coincide con el DiasMora de la campaña
+      const respondersByCedula = new Map<number, ResponderData[]>();
+      allResponders.forEach(r => {
+        if (!respondersByCedula.has(r.Cedula)) {
+          respondersByCedula.set(r.Cedula, []);
+        }
+        respondersByCedula.get(r.Cedula)!.push(r);
+      });
+
+      const uniqueResponders: ResponderData[] = [];
+      respondersByCedula.forEach((records) => {
+        // 1. Buscar coincidencia exacta con DiasMora de la campaña
+        let selected = records.find(r => r.DiasMora === campaignDiasMora);
+
+        // 2. Si no hay coincidencia exacta, intentar buscar el que tenga saldo > 0 (si es campaña de cobro)
+        if (!selected && (isPositiveCampaign || isNegativeCampaign)) {
+          // Preferir el que tenga saldo pendiente si no hay match exacto de días
+          selected = records.find(r => r.SaldoVencido > 0 || r.SaldoPorVencer > 0);
+        }
+
+        // 3. Fallback: usar el primero
+        if (!selected) {
+          selected = records[0];
+        }
+        uniqueResponders.push(selected);
+      });
+
+      if (uniqueResponders.length < allResponders.length) {
+        console.log(`   🔹 Duplicados eliminados: ${allResponders.length - uniqueResponders.length}`);
+        console.log(`   🎯 Respondedores únicos: ${uniqueResponders.length}`);
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // CALCULAR MÉTRICAS RELEVANTES SEGÚN TIPO DE CAMPAÑA
+      // ═══════════════════════════════════════════════════════════════════
+      const totalResponders = uniqueResponders.length;
 
       console.log(`   📍 Tipo de campaña identificado:`, {
         isNegativeCampaign,
         isPositiveCampaign,
         isCompromisoPago,
         isReactivacion,
-      });      // 1. PERSONAS QUE YA PAGARON COMPLETAMENTE
+      });
+
+      // 1. PERSONAS QUE YA PAGARON COMPLETAMENTE
       // Criterio: TipoDePago = Total
-      const alreadyPaidFull = uniqueResponders.filter(r => 
+      const alreadyPaidFull = uniqueResponders.filter(r =>
         r.TipoDePago === 'Total'
       ).length;
 
       // 2. PERSONAS CON PAGO PARCIAL (aún deben el saldo restante)
       // Criterio: TipoDePago = Parcial (queda saldo en RestanteSaldoVencido)
-      const partialPayment = uniqueResponders.filter(r => 
+      const partialPayment = uniqueResponders.filter(r =>
         r.TipoDePago === 'Parcial'
-      ).length;      // 3. PERSONAS QUE ENVIARON COMPROBANTE (validación de 2 condiciones principales)
+      ).length;
+
+      // 3. PERSONAS QUE ENVIARON COMPROBANTE (validación de 2 condiciones principales)
       // ComprobanteEnviado = Si/SI AND DiceQueYaPago = Si/SI
       // Nota: LlamarOtraVez puede ser NO si no se pudo contactar después del pago
       // Nota: Comparación case-insensitive porque en la BD puede ser "SI" o "Si"
       let validReceiptCount = 0;
       let examplesShown = 0;
-      
+
       const sentReceipt = uniqueResponders.filter(r => {
-        const hasReceipt = r.ComprobanteEnviado?.trim().toLowerCase() === 'si' && 
-                          r.DiceQueYaPago?.trim().toLowerCase() === 'si';
-        
+        const hasReceipt = r.ComprobanteEnviado?.trim().toLowerCase() === 'si' &&
+          r.DiceQueYaPago?.trim().toLowerCase() === 'si';
+
         // Log para debugging (mostrar primeros 5 casos válidos)
         if (hasReceipt && examplesShown < 5) {
           console.log(`   ✅ Ejemplo #${examplesShown + 1} - Comprobante válido:`, {
@@ -194,7 +229,7 @@ export const CampaignRespondersAnalysis = ({
           });
           examplesShown++;
         }
-        
+
         // También mostrar primeros 3 casos inválidos para comparación
         if (!hasReceipt && validReceiptCount < 3) {
           console.log(`   ❌ Ejemplo inválido:`, {
@@ -202,17 +237,19 @@ export const CampaignRespondersAnalysis = ({
             Cliente: r.Cliente,
             ComprobanteEnviado: `"${r.ComprobanteEnviado}"`,
             DiceQueYaPago: `"${r.DiceQueYaPago}"`,
-            razon: r.ComprobanteEnviado?.trim() !== 'Si' ? 
-              'ComprobanteEnviado no es "Si"' : 
+            razon: r.ComprobanteEnviado?.trim() !== 'Si' ?
+              'ComprobanteEnviado no es "Si"' :
               'DiceQueYaPago no es "Si"'
           });
           validReceiptCount++;
         }
-        
+
         return hasReceipt;
       }).length;
-      
-      console.log(`   📋 Total con comprobante válido: ${sentReceipt} de ${uniqueResponders.length} (${((sentReceipt / uniqueResponders.length) * 100).toFixed(1)}%)`);// 4. PERSONAS QUE YA NO DEBEN NADA (saldo = 0 en el sistema)
+
+      console.log(`   📋 Total con comprobante válido: ${sentReceipt} de ${uniqueResponders.length} (${((sentReceipt / uniqueResponders.length) * 100).toFixed(1)}%)`);
+
+      // 4. PERSONAS QUE YA NO DEBEN NADA (saldo = 0 en el sistema)
       // Lógica por tipo de campaña:
       // - Campañas positivas (1-5) + REACTIVACIÓN: SaldoVencido = 0
       // - Campañas negativas (-5 a -1): SaldoPorVencer = 0
@@ -226,60 +263,66 @@ export const CampaignRespondersAnalysis = ({
           return r.SaldoVencido === 0 && r.SaldoPorVencer === 0;
         }
         return false;
-      }).length;      // 5. CALCULAR DEUDA REAL PENDIENTE
+      }).length;
+
+      // 5. CALCULAR DEUDA REAL PENDIENTE
       // Lógica diferenciada por tipo de campaña y estado de pago
       let totalPendingDebt = 0;
-      
+
       uniqueResponders.forEach(r => {
         // Si pagó TODO (TipoDePago = Total) → deuda = 0
         if (r.TipoDePago === 'Total') {
           totalPendingDebt += 0;
-        } 
+        }
         // Si pagó PARCIAL (TipoDePago = Parcial) → deuda = saldo restante
         else if (r.TipoDePago === 'Parcial') {
           totalPendingDebt += (r.RestanteSaldoVencido || 0);
-        } 
+        }
         // Si NO ha pagado (TipoDePago = null o vacío) → calcular según tipo de campaña
         else {
           // CAMPAÑAS POSITIVAS (1-5) + REACTIVACIÓN COBRO → Usar SaldoVencido
           if (isPositiveCampaign || isReactivacion) {
             totalPendingDebt += (r.SaldoVencido || 0);
-          } 
+          }
           // CAMPAÑAS NEGATIVAS (-5 a -1) → Usar SaldoPorVencer
           else if (isNegativeCampaign) {
             totalPendingDebt += (r.SaldoPorVencer || 0);
-          } 
+          }
           // COMPROMISO DE PAGO → Sumar ambos
           else if (isCompromisoPago) {
             totalPendingDebt += (r.SaldoVencido || 0) + (r.SaldoPorVencer || 0);
           }
         }
-      });      // 6. PROMEDIO DE DÍAS DE MORA
-      const avgMora = uniqueResponders.length > 0 
+      });
+
+      // 6. PROMEDIO DE DÍAS DE MORA
+      const avgMora = uniqueResponders.length > 0
         ? uniqueResponders.reduce((sum, r) => sum + (r.DiasMora || 0), 0) / uniqueResponders.length
         : 0;
 
       // 7. TASA DE RESPUESTA EFECTIVA
-      const efectiveResponseRate = campaignCedulas.length > 0 
-        ? (totalResponders / campaignCedulas.length) * 100 
+      const efectiveResponseRate = campaignCedulas.length > 0
+        ? (totalResponders / campaignCedulas.length) * 100
         : 0;
 
       // 8. TASAS PORCENTUALES
-      const alreadyPaidRate = totalResponders > 0 
-        ? ((alreadyPaidFull + noDebtAnymore) / totalResponders) * 100 
+      const alreadyPaidRate = totalResponders > 0
+        ? ((alreadyPaidFull + noDebtAnymore) / totalResponders) * 100
         : 0;
-      
-      const partialPaymentRate = totalResponders > 0 
-        ? (partialPayment / totalResponders) * 100 
+
+      const partialPaymentRate = totalResponders > 0
+        ? (partialPayment / totalResponders) * 100
         : 0;
-      
-      const noDebtAnymoreRate = totalResponders > 0 
-        ? (noDebtAnymore / totalResponders) * 100 
+
+      const noDebtAnymoreRate = totalResponders > 0
+        ? (noDebtAnymore / totalResponders) * 100
         : 0;
-      
-      const sentReceiptRate = totalResponders > 0 
-        ? (sentReceipt / totalResponders) * 100 
-        : 0;// ═══════════════════════════════════════════════════════════════════
+
+      const sentReceiptRate = totalResponders > 0
+        ? (sentReceipt / totalResponders) * 100
+        : 0;
+
+      // ═══════════════════════════════════════════════════════════════════
       // LÓGICA DE RECOMENDACIÓN BASADA EN ESCENARIOS REALES
       // ═══════════════════════════════════════════════════════════════════
       let recommendation: "YES" | "NO" = "NO";
@@ -337,7 +380,9 @@ export const CampaignRespondersAnalysis = ({
       else {
         recommendation = "NO";
         recommendationReason = `Métricas no justifican re-envío. Mejor enfocar recursos en otras campañas con mayor potencial.`;
-      }      const analysisResult: CampaignAnalysis = {
+      }
+
+      const analysisResult: CampaignAnalysis = {
         totalResponders,
         responders: uniqueResponders, // ✅ Usar respondedores únicos
         efectiveResponseRate,
@@ -353,7 +398,7 @@ export const CampaignRespondersAnalysis = ({
 
       setAnalysis(analysisResult);
       console.log(`   ✅ Análisis completado:`, analysisResult);
-      
+
     } catch (err: any) {
       console.error(`   ❌ Error obteniendo datos: ${err.message}`);
     } finally {
@@ -368,6 +413,10 @@ export const CampaignRespondersAnalysis = ({
     }
     setIsExpanded(!isExpanded);
   };
+
+  // Determinar si mostrar la tarjeta "Sin Deuda"
+  // Solo mostrar para mora positiva (1-6)
+  const showSinDeuda = analysis && getCampaignDiasMora(campaignName) !== null && getCampaignDiasMora(campaignName)! > 0;
 
   return (
     <div>
@@ -392,8 +441,8 @@ export const CampaignRespondersAnalysis = ({
               {/* Recomendación principal */}
               <div className={cn(
                 "p-4 rounded-lg border-2",
-                analysis.recommendation === "YES" 
-                  ? "bg-green-50 border-green-300" 
+                analysis.recommendation === "YES"
+                  ? "bg-green-50 border-green-300"
                   : "bg-red-50 border-red-300"
               )}>
                 <div className="flex items-center gap-3 mb-2">
@@ -409,7 +458,9 @@ export const CampaignRespondersAnalysis = ({
                     <p className="text-sm text-muted-foreground">{analysis.recommendationReason}</p>
                   </div>
                 </div>
-              </div>              {/* Métricas clave */}
+              </div>
+
+              {/* Métricas clave */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div className="bg-blue-50 p-3 rounded-lg text-center">
                   <p className="text-xs text-muted-foreground mb-1">Tasa Respuesta</p>
@@ -420,7 +471,7 @@ export const CampaignRespondersAnalysis = ({
                     {analysis.totalResponders} / {campaignCedulas.length}
                   </p>
                 </div>
-                
+
                 <div className="bg-green-50 p-3 rounded-lg text-center">
                   <p className="text-xs text-muted-foreground mb-1">Ya Pagaron</p>
                   <p className="text-xl font-bold text-green-700">
@@ -428,29 +479,33 @@ export const CampaignRespondersAnalysis = ({
                   </p>
                   <p className="text-xs text-muted-foreground">TipoDePago=Total</p>
                 </div>
-                
+
                 <div className="bg-purple-50 p-3 rounded-lg text-center">
                   <p className="text-xs text-muted-foreground mb-1">Pagos Parciales</p>
                   <p className="text-xl font-bold text-purple-700">
                     {analysis.partialPaymentRate.toFixed(1)}%
                   </p>
                   <p className="text-xs text-muted-foreground">TipoDePago=Parcial</p>
-                </div>                <div className="bg-indigo-50 p-3 rounded-lg text-center">
+                </div>
+
+                <div className="bg-indigo-50 p-3 rounded-lg text-center">
                   <p className="text-xs text-muted-foreground mb-1">Comprobante Enviado</p>
                   <p className="text-xl font-bold text-indigo-700">
                     {analysis.sentReceiptRate.toFixed(1)}%
                   </p>
                   <p className="text-xs text-muted-foreground">ComprobanteEnviado=Si + DiceQueYaPago=Si</p>
                 </div>
-                
-                <div className="bg-teal-50 p-3 rounded-lg text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Sin Deuda</p>
-                  <p className="text-xl font-bold text-teal-700">
-                    {analysis.noDebtAnymoreRate.toFixed(1)}%
-                  </p>
-                  <p className="text-xs text-muted-foreground">Saldo = 0</p>
-                </div>
-                
+
+                {showSinDeuda && (
+                  <div className="bg-teal-50 p-3 rounded-lg text-center">
+                    <p className="text-xs text-muted-foreground mb-1">Sin Deuda</p>
+                    <p className="text-xl font-bold text-teal-700">
+                      {analysis.noDebtAnymoreRate.toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">Saldo = 0</p>
+                  </div>
+                )}
+
                 <div className="bg-orange-50 p-3 rounded-lg text-center">
                   <p className="text-xs text-muted-foreground mb-1">Deuda Pendiente</p>
                   <p className="text-xl font-bold text-orange-700">
@@ -458,12 +513,15 @@ export const CampaignRespondersAnalysis = ({
                   </p>
                   <p className="text-xs text-muted-foreground">Total real</p>
                 </div>
-              </div>{/* Tabla de respondedores */}
+              </div>
+
+              {/* Tabla de respondedores */}
               {analysis.responders.length > 0 && (
                 <div className="mt-4">
                   <h4 className="font-semibold mb-2">Respondedores ({analysis.totalResponders})</h4>
                   <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                    <table className="w-full text-sm border-collapse">                      <thead className="sticky top-0 bg-gray-100">
+                    <table className="w-full text-sm border-collapse">
+                      <thead className="sticky top-0 bg-gray-100">
                         <tr className="border-b-2">
                           <th className="text-left p-2 font-semibold">Cédula</th>
                           <th className="text-left p-2 font-semibold">Cliente</th>
@@ -472,10 +530,13 @@ export const CampaignRespondersAnalysis = ({
                           <th className="text-right p-2 font-semibold">Saldo Por Vencer</th>
                           <th className="text-center p-2 font-semibold">Días Mora</th>
                           <th className="text-center p-2 font-semibold">Comprobante Enviado</th>
+                          <th className="text-center p-2 font-semibold">Estado Etiqueta</th>
+                          <th className="text-center p-2 font-semibold">Agendó Compromiso</th>
                           <th className="text-center p-2 font-semibold">Tipo Pago</th>
                           <th className="text-right p-2 font-semibold">Saldo Restante</th>
                         </tr>
-                      </thead><tbody>
+                      </thead>
+                      <tbody>
                         {analysis.responders.map((responder, idx) => {
                           // Identificar tipo de campaña
                           const campaignDiasMora = getCampaignDiasMora(campaignName);
@@ -483,7 +544,7 @@ export const CampaignRespondersAnalysis = ({
                           const isPositiveCampaign = campaignDiasMora !== null && campaignDiasMora > 0;
                           const isCompromisoPago = campaignName.includes("COMPROMISO DE PAGO");
                           const isReactivacion = campaignName.includes("REACTIVACIÓN") || campaignName.includes("REACTIVACION");
-                          
+
                           // Determinar deuda relevante según tipo de campaña
                           let relevantDebt = 0;
                           if (isPositiveCampaign || isReactivacion) {
@@ -495,14 +556,16 @@ export const CampaignRespondersAnalysis = ({
                           } else if (isCompromisoPago) {
                             // COMPROMISO DE PAGO → Sumar ambos
                             relevantDebt = (responder.SaldoVencido || 0) + (responder.SaldoPorVencer || 0);
-                          }                          // Verificar comprobante enviado (2 condiciones principales)
+                          }
+
+                          // Verificar comprobante enviado (2 condiciones principales)
                           // ComprobanteEnviado = Si/SI AND DiceQueYaPago = Si/SI
                           // LlamarOtraVez puede ser NO si no se pudo contactar después
                           // Nota: Comparación case-insensitive porque en la BD puede ser "SI" o "Si"
-                          const hasValidReceipt = 
-                            responder.ComprobanteEnviado?.trim().toLowerCase() === 'si' && 
+                          const hasValidReceipt =
+                            responder.ComprobanteEnviado?.trim().toLowerCase() === 'si' &&
                             responder.DiceQueYaPago?.trim().toLowerCase() === 'si';
-                          
+
                           // Log detallado para cada registro (solo primeros 5)
                           if (idx < 5) {
                             console.log(`📋 Registro #${idx + 1} - ${responder.Cliente}:`, {
@@ -511,14 +574,14 @@ export const CampaignRespondersAnalysis = ({
                               DiceQueYaPago: `"${responder.DiceQueYaPago}"`,
                               LlamarOtraVez: `"${responder.LlamarOtraVez}"`,
                               hasValidReceipt: hasValidReceipt ? '✅ SI' : '❌ NO',
-                              razon: !hasValidReceipt ? 
-                                (responder.ComprobanteEnviado?.trim() !== 'Si' ? 
-                                  'ComprobanteEnviado no es "Si"' : 
-                                  'DiceQueYaPago no es "Si"') : 
+                              razon: !hasValidReceipt ?
+                                (responder.ComprobanteEnviado?.trim() !== 'Si' ?
+                                  'ComprobanteEnviado no es "Si"' :
+                                  'DiceQueYaPago no es "Si"') :
                                 'Cumple las 2 condiciones'
                             });
                           }
-                          
+
                           return (
                             <tr key={idx} className="border-b hover:bg-gray-50">
                               <td className="p-2">{responder.Cedula}</td>
@@ -533,21 +596,44 @@ export const CampaignRespondersAnalysis = ({
                               <td className="p-2 text-center">
                                 <span className={cn(
                                   "px-2 py-1 rounded text-xs font-semibold",
-                                  responder.DiasMora && responder.DiasMora > 5 
-                                    ? "bg-red-100 text-red-800" 
+                                  responder.DiasMora && responder.DiasMora > 5
+                                    ? "bg-red-100 text-red-800"
                                     : responder.DiasMora && responder.DiasMora > 0
-                                    ? "bg-orange-100 text-orange-800"
-                                    : "bg-blue-100 text-blue-800"
+                                      ? "bg-orange-100 text-orange-800"
+                                      : "bg-blue-100 text-blue-800"
                                 )}>
                                   {responder.DiasMora || 0}
                                 </span>
-                              </td>                              <td className="p-2 text-center">
+                              </td>
+                              <td className="p-2 text-center">
                                 {hasValidReceipt ? (
                                   <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800" title="ComprobanteEnviado=Si, DiceQueYaPago=Si">
                                     SI
                                   </span>
                                 ) : (
                                   <span className="px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
+                                    NO
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-2 text-center">
+                                {responder.EstadoEtiqueta ? (
+                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-800">
+                                    {responder.EstadoEtiqueta}
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-50 text-gray-500 italic">
+                                    chat conversacional
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-2 text-center">
+                                {responder.compromiso_pago_fecha ? (
+                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800">
+                                    SI
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-600">
                                     NO
                                   </span>
                                 )}
