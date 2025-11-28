@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import MetricCard from "./MetricCard";
-import { 
-  FileText, 
-  Headphones, 
-  UserCheck, 
-  PackageX, 
+import {
+  FileText,
+  Headphones,
+  UserCheck,
+  PackageX,
   Wrench,
   Search,
   CheckCircle,
@@ -15,7 +15,8 @@ import {
   CreditCard,
   Banknote,
   UserX,
-  PhoneOff
+  PhoneOff,
+  Handshake
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar } from "@/components/ui/calendar";
@@ -48,13 +49,13 @@ const GeneralTab = () => {
       });
 
       const { data, error } = await supabase.functions.invoke("chatwoot-metrics", {
-        body: { 
+        body: {
           type: "range",
           dateFrom: fechaInicio,
           dateTo: fechaFin
         }
       });
-      
+
       if (error) {
         console.error("Error obteniendo métricas de Chatwoot:", error);
         throw new Error(`Error de API: ${error.message}`);
@@ -71,7 +72,7 @@ const GeneralTab = () => {
 
   if (loadingChatwoot) {
     return (
-      <LoadingState 
+      <LoadingState
         title="Cargando datos de Chatwoot..."
         message="Obteniendo todas las conversaciones, aplicando paginación completa y filtros de fecha. Esto puede tomar unos momentos."
         skeletonCount={9}
@@ -96,137 +97,143 @@ const GeneralTab = () => {
     );
   }
 
-  return (      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold mb-2">Métricas Generales</h2>
-          <p className="text-muted-foreground mb-4">
-            Vista general de campañas y conversaciones desde Chatwoot
-            <br />
-            <span className="text-xs text-muted-foreground">
-              {dateFrom && dateTo && (
-                `Período: ${format(dateFrom, "dd/MM/yyyy")} - ${format(dateTo, "dd/MM/yyyy")} (Zona horaria: Ecuador UTC-5)`
-              )}
-            </span>
-          </p>
-          
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-muted-foreground">Fecha Inicio</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="justify-start text-left font-normal min-w-[200px]">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateFrom ? format(dateFrom, "PPP") : "Seleccionar fecha"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateFrom}
-                    onSelect={setDateFrom}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+  return (<div className="space-y-6">
+    <div>
+      <h2 className="text-2xl font-bold mb-2">Métricas Generales</h2>
+      <p className="text-muted-foreground mb-4">
+        Vista general de campañas y conversaciones desde Chatwoot
+        <br />
+        <span className="text-xs text-muted-foreground">
+          {dateFrom && dateTo && (
+            `Período: ${format(dateFrom, "dd/MM/yyyy")} - ${format(dateTo, "dd/MM/yyyy")} (Zona horaria: Ecuador UTC-5)`
+          )}
+        </span>
+      </p>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-muted-foreground">Fecha Fin</label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="justify-start text-left font-normal min-w-[200px]">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateTo ? format(dateTo, "PPP") : "Seleccionar fecha"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dateTo}
-                    onSelect={setDateTo}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-        </div>        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard
-            title="Comprobantes Enviados"
-            value={chatwootMetrics?.comprobante_enviado?.toString() || "0"}
-            icon={FileText}
-            description="Cliente mandó el comprobante de pago"
-          />
-          <MetricCard
-            title="Facturas Enviadas"
-            value={chatwootMetrics?.factura_enviada?.toString() || "0"}
-            icon={FileText}
-            description="Cliente indicó que ya pagó y mandó factura de pago"
-          />
-          <MetricCard
-            title="Consultas Saldo"
-            value={chatwootMetrics?.consulto_saldo?.toString() || "0"}
-            icon={Search}
-            description="Cliente realizó consulta de sus créditos para saber qué valores tiene pendientes"
-          />
-          <MetricCard
-            title="Pagado"
-            value={chatwootMetrics?.pagado?.toString() || "0"}
-            icon={CreditCard}
-            description="Se da a conocer que cliente ya había pagado y no tiene nada pendiente por pagar"
-          />
-          <MetricCard
-            title="Soporte"
-            value={chatwootMetrics?.soporte?.toString() || "0"}
-            icon={Headphones}
-            description="Usuario pidió contacto humano directo - que quiere hablar con alguien explícitamente"
-          />
-          <MetricCard
-            title="Cobrador"
-            value={chatwootMetrics?.cobrador?.toString() || "0"}
-            icon={UserCheck}
-            description="Cliente solicita que se le envíe un cobrador"
-          />
-          <MetricCard
-            title="Devolución Producto"
-            value={chatwootMetrics?.devolucion_producto?.toString() || "0"}
-            icon={PackageX}
-            description="Cliente solicita devolver el producto adquirido"
-          />
-          <MetricCard
-            title="Servicio Técnico"
-            value={chatwootMetrics?.servicio_tecnico?.toString() || "0"}
-            icon={Wrench}
-            description="Cliente desea hablar con soporte técnico"
-          />
-          <MetricCard
-            title="Consulta Datos Transferencia"
-            value={chatwootMetrics?.consulto_datos_transferencia?.toString() || "0"}
-            icon={Banknote}
-            description="Cliente solicita datos de cuentas bancarias"
-          />
-          <MetricCard
-            title="No Registrado"
-            value={chatwootMetrics?.no_registrado?.toString() || "0"}
-            icon={UserX}
-            description="Cliente no encontrado en base de datos de POINT"
-          />
-          <MetricCard
-            title="Casos Resueltos"
-            value={chatwootMetrics?.resuelto?.toString() || "0"}
-            icon={CheckCircle}
-            description="Casos resueltos de soporte, servicio técnico, devolución producto y cobrador"
-          />
-          <MetricCard
-            title="Número Equivocado"
-            value={chatwootMetrics?.numero_equivocado?.toString() || "0"}
-            icon={PhoneOff}
-            description="Cliente indicó que fue contactado por error"
-          />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-muted-foreground">Fecha Inicio</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="justify-start text-left font-normal min-w-[200px]">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateFrom ? format(dateFrom, "PPP") : "Seleccionar fecha"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateFrom}
+                onSelect={setDateFrom}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-muted-foreground">Fecha Fin</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="justify-start text-left font-normal min-w-[200px]">
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateTo ? format(dateTo, "PPP") : "Seleccionar fecha"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dateTo}
+                onSelect={setDateTo}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
+    </div>        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <MetricCard
+        title="Comprobantes Enviados"
+        value={chatwootMetrics?.comprobante_enviado?.toString() || "0"}
+        icon={FileText}
+        description="Cliente mandó el comprobante de pago"
+      />
+      <MetricCard
+        title="Facturas Enviadas"
+        value={chatwootMetrics?.factura_enviada?.toString() || "0"}
+        icon={FileText}
+        description="Cliente indicó que ya pagó y mandó factura de pago"
+      />
+      <MetricCard
+        title="Consultas Saldo"
+        value={chatwootMetrics?.consulto_saldo?.toString() || "0"}
+        icon={Search}
+        description="Cliente realizó consulta de sus créditos para saber qué valores tiene pendientes"
+      />
+      <MetricCard
+        title="Pagado"
+        value={chatwootMetrics?.pagado?.toString() || "0"}
+        icon={CreditCard}
+        description="Se da a conocer que cliente ya había pagado y no tiene nada pendiente por pagar"
+      />
+      <MetricCard
+        title="Soporte"
+        value={chatwootMetrics?.soporte?.toString() || "0"}
+        icon={Headphones}
+        description="Usuario pidió contacto humano directo - que quiere hablar con alguien explícitamente"
+      />
+      <MetricCard
+        title="Cobrador"
+        value={chatwootMetrics?.cobrador?.toString() || "0"}
+        icon={UserCheck}
+        description="Cliente solicita que se le envíe un cobrador"
+      />
+      <MetricCard
+        title="Devolución Producto"
+        value={chatwootMetrics?.devolucion_producto?.toString() || "0"}
+        icon={PackageX}
+        description="Cliente solicita devolver el producto adquirido"
+      />
+      <MetricCard
+        title="Servicio Técnico"
+        value={chatwootMetrics?.servicio_tecnico?.toString() || "0"}
+        icon={Wrench}
+        description="Cliente desea hablar con soporte técnico"
+      />
+      <MetricCard
+        title="Consulta Datos Transferencia"
+        value={chatwootMetrics?.consulto_datos_transferencia?.toString() || "0"}
+        icon={Banknote}
+        description="Cliente solicita datos de cuentas bancarias"
+      />
+      <MetricCard
+        title="No Registrado"
+        value={chatwootMetrics?.no_registrado?.toString() || "0"}
+        icon={UserX}
+        description="Cliente no encontrado en base de datos de POINT"
+      />
+      <MetricCard
+        title="Casos Resueltos"
+        value={chatwootMetrics?.resuelto?.toString() || "0"}
+        icon={CheckCircle}
+        description="Casos resueltos de soporte, servicio técnico, devolución producto y cobrador"
+      />
+      <MetricCard
+        title="Número Equivocado"
+        value={chatwootMetrics?.numero_equivocado?.toString() || "0"}
+        icon={PhoneOff}
+        description="Cliente indicó que fue contactado por error"
+      />
+      <MetricCard
+        title="Compromiso Pago"
+        value={chatwootMetrics?.compromiso_pago?.toString() || "0"}
+        icon={Handshake}
+        description="Cliente se ha comprometido a realizar el pago"
+      />
+    </div>
+  </div>
   );
 };
 

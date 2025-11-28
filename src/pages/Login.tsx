@@ -11,13 +11,13 @@ const Login = () => {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);  const handleLogin = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false); const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     // CREDENCIALES FIJAS - ACTUALIZADAS 2025-11-24
     const USUARIO_VALIDO = "point";
-    const PASSWORD_VALIDA = "point$";
+    const PASSWORD_VALIDA = "point";
 
     console.log("🔐 === INICIO DE SESIÓN ===");
     console.log("Usuario ingresado:", username);
@@ -31,7 +31,7 @@ const Login = () => {
       sessionStorage.setItem("authenticated", "true");
       sessionStorage.setItem("loginTime", new Date().toISOString());
       toast.success("¡Bienvenido a Cobranza POINT!");
-      
+
       // Pequeño delay para que se vea el toast
       setTimeout(() => {
         navigate("/dashboard");
@@ -57,21 +57,21 @@ const Login = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">            <div className="space-y-2">
-              <Label htmlFor="username">Usuario</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="point"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="pl-10"
-                  required
-                  autoComplete="off"
-                />
-              </div>
+            <Label htmlFor="username">Usuario</Label>
+            <div className="relative">
+              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="username"
+                type="text"
+                placeholder="point"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="pl-10"
+                required
+                autoComplete="off"
+              />
             </div>
+          </div>
             <div className="space-y-2">
               <Label htmlFor="password">Contraseña</Label>
               <div className="relative">

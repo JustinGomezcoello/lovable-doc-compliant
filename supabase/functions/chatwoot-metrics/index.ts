@@ -43,10 +43,10 @@ interface MetricsResult {
 function convertirFechaEcuadorATimestamp(fecha: string, esFinDeDia: boolean = false): number {
   // Ecuador está en UTC-5
   const offset = -5 * 60 * 60 * 1000; // -5 horas en milisegundos
-  
+
   const fechaLocal = new Date(fecha + (esFinDeDia ? 'T23:59:59' : 'T00:00:00'));
   const timestampUTC = fechaLocal.getTime() - offset;
-  
+
   return Math.floor(timestampUTC / 1000);
 }
 
@@ -69,12 +69,12 @@ async function obtenerConversacionesPorEtiqueta(
   let hasMorePages = true
   let consecutiveEmptyPages = 0
   const maxConsecutiveEmptyPages = 3 // Máximo de páginas vacías consecutivas antes de parar
-  
+
   console.log(`🔍 Iniciando obtención COMPLETA de conversaciones para etiqueta: ${label}`)
-  
+
   while (hasMorePages) {
     const url = `${baseUrl}/api/v1/accounts/${accountId}/conversations?labels[]=${encodeURIComponent(label)}&status=all&page=${currentPage}`
-    
+
     console.log(`📄 Consultando página ${currentPage} para ${label}`)
 
     try {
@@ -90,7 +90,7 @@ async function obtenerConversacionesPorEtiqueta(
       if (!response.ok) {
         const errorText = await response.text()
         console.error(`❌ Error HTTP ${response.status} en página ${currentPage} para label ${label}:`, response.statusText, errorText)
-        
+
         // Si es un error 404 o similar, probablemente no hay más páginas
         if (response.status === 404 || response.status === 422) {
           console.log(`🛑 Página ${currentPage} no encontrada para ${label}, terminando paginación`)
@@ -110,20 +110,20 @@ async function obtenerConversacionesPorEtiqueta(
       const data: ChatwootResponse = await response.json()
       const conversations = data.data?.payload || []
       const meta = data.data?.meta || {}
-      
+
       console.log(`📊 Página ${currentPage} para ${label}: ${conversations.length} conversaciones encontradas`)
       console.log(`📈 Meta información:`, {
         mine_count: meta.mine_count,
-        assigned_count: meta.assigned_count, 
+        assigned_count: meta.assigned_count,
         unassigned_count: meta.unassigned_count,
         all_count: meta.all_count
       })
-      
+
       // Si no hay conversaciones en esta página
       if (conversations.length === 0) {
         consecutiveEmptyPages++
         console.log(`📭 Página ${currentPage} vacía para ${label} (${consecutiveEmptyPages}/${maxConsecutiveEmptyPages} páginas vacías consecutivas)`)
-        
+
         // Si hemos tenido varias páginas vacías consecutivas, probablemente no hay más datos
         if (consecutiveEmptyPages >= maxConsecutiveEmptyPages) {
           console.log(`🏁 Terminando paginación para ${label}: ${maxConsecutiveEmptyPages} páginas vacías consecutivas`)
@@ -135,25 +135,25 @@ async function obtenerConversacionesPorEtiqueta(
       } else {
         // Resetear contador de páginas vacías ya que encontramos datos
         consecutiveEmptyPages = 0
-        
+
         // Agregar conversaciones al array total
         allConversations = allConversations.concat(conversations)
         console.log(`✅ Agregadas ${conversations.length} conversaciones. Total acumulado para ${label}: ${allConversations.length}`)
-        
+
         // Continuar con la siguiente página
         currentPage++
       }
-      
+
       // Límite de seguridad para evitar bucles infinitos (aumentado para manejar más datos)
       if (currentPage > 500) {
         console.warn(`⚠️ Límite máximo de páginas alcanzado (500) para etiqueta ${label}`)
         hasMorePages = false
       }
-      
+
     } catch (error) {
       console.error(`💥 Error al obtener página ${currentPage} para label ${label}:`, error)
       consecutiveEmptyPages++
-      
+
       if (consecutiveEmptyPages >= maxConsecutiveEmptyPages) {
         console.log(`🛑 Demasiados errores consecutivos para ${label}, terminando`)
         hasMorePages = false
@@ -161,11 +161,11 @@ async function obtenerConversacionesPorEtiqueta(
         currentPage++
       }
     }
-    
+
     // Pequeña pausa entre requests para evitar rate limiting
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  
+
   console.log(`🎯 TOTAL FINAL para etiqueta ${label}: ${allConversations.length} conversaciones obtenidas en ${currentPage - 1} páginas`)
   return allConversations
 }
@@ -186,20 +186,20 @@ function filtrarConversacionesPorFecha(
 ): ChatwootConversation[] {
   const timestampInicio = convertirFechaEcuadorATimestamp(fechaInicio, false)
   const timestampFin = convertirFechaEcuadorATimestamp(fechaFin, true)
-  
+
   console.log(`🗓️ Filtrando ${label}:`)
   console.log(`   📅 ${fechaInicio} 00:00:00 Ecuador = ${timestampInicio} UTC (${new Date(timestampInicio * 1000).toISOString()})`)
   console.log(`   📅 ${fechaFin} 23:59:59 Ecuador = ${timestampFin} UTC (${new Date(timestampFin * 1000).toISOString()})`)
   console.log(`   📊 Total conversaciones antes del filtro: ${conversaciones.length}`)
-  
+
   let dentroDelRango = 0
   let antesDelRango = 0
   let despuesDelRango = 0
-  
+
   const filtradas = conversaciones.filter((conv) => {
     const createdAt = conv.created_at || 0
     const enRango = createdAt >= timestampInicio && createdAt <= timestampFin
-    
+
     if (enRango) {
       dentroDelRango++
     } else if (createdAt < timestampInicio) {
@@ -207,16 +207,16 @@ function filtrarConversacionesPorFecha(
     } else {
       despuesDelRango++
     }
-    
+
     return enRango
   })
-  
+
   console.log(`📈 Resultados del filtro para ${label}:`)
   console.log(`   ✅ Dentro del rango: ${dentroDelRango}`)
   console.log(`   ⬅️ Antes del rango: ${antesDelRango}`)
   console.log(`   ➡️ Después del rango: ${despuesDelRango}`)
   console.log(`   🎯 Total filtradas: ${filtradas.length} de ${conversaciones.length}`)
-  
+
   return filtradas
 }
 
@@ -238,7 +238,7 @@ async function procesarMetricasPorEtiqueta(
     accountId,
     apiToken
   )
-  
+
   // 2. Filtrar por rango de fechas
   const conversacionesFiltradas = filtrarConversacionesPorFecha(
     todasLasConversaciones,
@@ -246,7 +246,7 @@ async function procesarMetricasPorEtiqueta(
     fechaFin,
     label
   )
-  
+
   // 3. Retornar resultado
   return {
     total_conversaciones_filtradas: conversacionesFiltradas.length,
@@ -264,9 +264,9 @@ serve(async (req) => {
 
   try {
     const { type, date, dateFrom, dateTo } = await req.json()
-    
+
     console.log('Parámetros de solicitud:', { type, date, dateFrom, dateTo })
-      const CHATWOOT_BASE_URL = Deno.env.get('CHATWOOT_BASE_URL')
+    const CHATWOOT_BASE_URL = Deno.env.get('CHATWOOT_BASE_URL')
     const CHATWOOT_API_TOKEN = Deno.env.get('CHATWOOT_API_TOKEN')
     const CHATWOOT_ACCOUNT_ID = Deno.env.get('CHATWOOT_ACCOUNT_ID')
 
@@ -290,7 +290,8 @@ serve(async (req) => {
       'resuelto',
       'pagado',
       'consulto_datos_transferencia',
-      'no_registrado'
+      'no_registrado',
+      'compromiso_pago'
     ]
 
     const metrics: Record<string, number> = {}
@@ -306,15 +307,15 @@ serve(async (req) => {
       fechaFin = dateTo
     } else {
       throw new Error('Parámetros de fecha inválidos')
-    }    console.log(`🚀 Procesando métricas del ${fechaInicio} al ${fechaFin}`)
+    } console.log(`🚀 Procesando métricas del ${fechaInicio} al ${fechaFin}`)
 
     // Procesar cada etiqueta
     for (const label of labels) {
       console.log(`\n🏷️ ===== PROCESANDO ETIQUETA: ${label.toUpperCase()} =====`)
-      
+
       try {
         const tiempoInicio = Date.now()
-        
+
         const resultado = await procesarMetricasPorEtiqueta(
           label,
           fechaInicio,
@@ -323,12 +324,12 @@ serve(async (req) => {
           CHATWOOT_ACCOUNT_ID,
           CHATWOOT_API_TOKEN
         )
-        
+
         const tiempoTotal = Date.now() - tiempoInicio
-        
+
         metrics[label] = resultado.total_conversaciones_filtradas
         console.log(`✅ Métrica ${label}: ${resultado.total_conversaciones_filtradas} conversaciones (procesado en ${tiempoTotal}ms)`)
-        
+
       } catch (error) {
         console.error(`❌ Error procesando etiqueta ${label}:`, error)
         metrics[label] = 0
@@ -350,7 +351,7 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
     return new Response(
       JSON.stringify({ error: errorMessage }),
-      { 
+      {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }

@@ -57,6 +57,8 @@ const DayByDayTab = () => {
     "point_mora_pos5",
     "point_compromiso_pago",
     "point_reactivacion_cobro",
+    "point_compromiso_pago_llamadas",
+    "point_mora_cero",
   ] as const;
 
   const campaignNames: Record<string, string> = {
@@ -72,6 +74,8 @@ const DayByDayTab = () => {
     point_mora_pos5: "MORA POSITIVA 5",
     point_compromiso_pago: "COMPROMISO DE PAGO",
     point_reactivacion_cobro: "REACTIVACIÓN COBRO",
+    point_compromiso_pago_llamadas: "COMPROMISO PAGO LLAMADAS",
+    point_mora_cero: "MORA CERO",
   };
 
   const COSTO_POR_MENSAJE = 0.014;

@@ -31,6 +31,7 @@ interface CampaignAnalysis {
   partialPaymentRate: number; // % con pago parcial (queda saldo restante)
   noDebtAnymoreRate: number; // % que ya no tienen deuda (saldo = 0)
   sentReceiptRate: number; // % que enviaron comprobante (3 condiciones)
+  agendoCompromisoRate: number; // % que agendaron compromiso de pago
   totalPendingDebt: number; // Suma de saldo pendiente real
   averageDiasMora: number; // Promedio de días de mora
   recommendation: "YES" | "NO";
@@ -322,6 +323,11 @@ export const CampaignRespondersAnalysis = ({
         ? (sentReceipt / totalResponders) * 100
         : 0;
 
+      const agendoCompromisoCount = uniqueResponders.filter(r => r.compromiso_pago_fecha).length;
+      const agendoCompromisoRate = totalResponders > 0
+        ? (agendoCompromisoCount / totalResponders) * 100
+        : 0;
+
       // ═══════════════════════════════════════════════════════════════════
       // LÓGICA DE RECOMENDACIÓN BASADA EN ESCENARIOS REALES
       // ═══════════════════════════════════════════════════════════════════
@@ -337,7 +343,8 @@ export const CampaignRespondersAnalysis = ({
         efectiveResponseRate: `${efectiveResponseRate.toFixed(1)}%`,
         alreadyPaidRate: `${alreadyPaidRate.toFixed(1)}%`,
         partialPaymentRate: `${partialPaymentRate.toFixed(1)}%`,
-        noDebtAnymoreRate: `${noDebtAnymoreRate.toFixed(1)}%`
+        noDebtAnymoreRate: `${noDebtAnymoreRate.toFixed(1)}%`,
+        agendoCompromisoRate: `${agendoCompromisoRate.toFixed(1)}%`
       });
 
       // CRITERIO 1: Si la mayoría ya pagó o ya no debe, NO re-enviar
@@ -390,6 +397,7 @@ export const CampaignRespondersAnalysis = ({
         partialPaymentRate,
         noDebtAnymoreRate,
         sentReceiptRate,
+        agendoCompromisoRate,
         totalPendingDebt,
         averageDiasMora: avgMora,
         recommendation,
@@ -494,6 +502,14 @@ export const CampaignRespondersAnalysis = ({
                     {analysis.sentReceiptRate.toFixed(1)}%
                   </p>
                   <p className="text-xs text-muted-foreground">ComprobanteEnviado=Si + DiceQueYaPago=Si</p>
+                </div>
+
+                <div className="bg-cyan-50 p-3 rounded-lg text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Agendó Compromiso</p>
+                  <p className="text-xl font-bold text-cyan-700">
+                    {analysis.agendoCompromisoRate.toFixed(1)}%
+                  </p>
+                  <p className="text-xs text-muted-foreground">Tiene fecha compromiso</p>
                 </div>
 
                 {showSinDeuda && (
