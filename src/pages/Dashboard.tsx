@@ -10,7 +10,7 @@ import ConversationHistoryTab from "@/components/dashboard/ConversationHistoryTa
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("general");const handleLogout = () => {
+  const [activeTab, setActiveTab] = useState("general"); const handleLogout = () => {
     console.log("🚪 Cerrando sesión...");
     sessionStorage.clear();
     navigate("/login", { replace: true });
@@ -22,25 +22,25 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">      <header className="border-b bg-card shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              Cobranza POINT Dashboard
-            </h1>
-            <p className="text-sm text-muted-foreground">Sistema de Gestión de Cobranzas</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="default" onClick={handleGoHome}>
-              <Home className="w-4 h-4 mr-2" />
-              Volver al Inicio
-            </Button>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Cerrar Sesión
-            </Button>
-          </div>
+      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            Cobranza POINT Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground">Sistema de Gestión de Cobranzas</p>
         </div>
-      </header><main className="container mx-auto px-4 py-6">
+        <div className="flex gap-2">
+          <Button variant="default" onClick={handleGoHome}>
+            <Home className="w-4 h-4 mr-2" />
+            Volver al Inicio
+          </Button>
+          <Button variant="outline" onClick={handleLogout}>
+            <LogOut className="w-4 h-4 mr-2" />
+            Cerrar Sesión
+          </Button>
+        </div>
+      </div>
+    </header><main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="general">General</TabsTrigger>
