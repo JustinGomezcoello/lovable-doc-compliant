@@ -159,78 +159,91 @@ const GeneralTab = () => {
         value={chatwootMetrics?.comprobante_enviado?.toString() || "0"}
         icon={FileText}
         description="Cliente mandó el comprobante de pago"
+        variant="primary"
       />
       <MetricCard
         title="Facturas Enviadas"
         value={chatwootMetrics?.factura_enviada?.toString() || "0"}
         icon={FileText}
         description="Cliente indicó que ya pagó y mandó factura de pago"
+        variant="primary"
       />
       <MetricCard
         title="Consultas Saldo"
         value={chatwootMetrics?.consulto_saldo?.toString() || "0"}
         icon={Search}
         description="Cliente realizó consulta de sus créditos para saber qué valores tiene pendientes"
+        variant="primary"
       />
       <MetricCard
         title="Pagado"
         value={chatwootMetrics?.pagado?.toString() || "0"}
         icon={CreditCard}
         description="Se da a conocer que cliente ya había pagado y no tiene nada pendiente por pagar"
+        variant="success"
       />
       <MetricCard
         title="Soporte"
         value={chatwootMetrics?.soporte?.toString() || "0"}
         icon={Headphones}
         description="Usuario pidió contacto humano directo - que quiere hablar con alguien explícitamente"
+        variant="warning"
       />
       <MetricCard
         title="Cobrador"
         value={chatwootMetrics?.cobrador?.toString() || "0"}
         icon={UserCheck}
         description="Cliente solicita que se le envíe un cobrador"
+        variant="warning"
       />
       <MetricCard
         title="Devolución Producto"
         value={chatwootMetrics?.devolucion_producto?.toString() || "0"}
         icon={PackageX}
         description="Cliente solicita devolver el producto adquirido"
+        variant="destructive"
       />
       <MetricCard
         title="Servicio Técnico"
         value={chatwootMetrics?.servicio_tecnico?.toString() || "0"}
         icon={Wrench}
         description="Cliente desea hablar con soporte técnico"
+        variant="warning"
       />
       <MetricCard
         title="Consulta Datos Transferencia"
         value={chatwootMetrics?.consulto_datos_transferencia?.toString() || "0"}
         icon={Banknote}
         description="Cliente solicita datos de cuentas bancarias"
+        variant="primary"
       />
       <MetricCard
         title="No Registrado"
         value={chatwootMetrics?.no_registrado?.toString() || "0"}
         icon={UserX}
         description="Cliente no encontrado en base de datos de POINT"
+        variant="destructive"
       />
       <MetricCard
         title="Casos Resueltos"
         value={chatwootMetrics?.resuelto?.toString() || "0"}
         icon={CheckCircle}
         description="Casos resueltos de soporte, servicio técnico, devolución producto y cobrador"
+        variant="success"
       />
       <MetricCard
         title="Número Equivocado"
         value={chatwootMetrics?.numero_equivocado?.toString() || "0"}
         icon={PhoneOff}
         description="Cliente indicó que fue contactado por error"
+        variant="destructive"
       />
       <MetricCard
         title="Compromiso Pago"
         value={chatwootMetrics?.compromiso_pago?.toString() || "0"}
         icon={Handshake}
         description="Cliente se ha comprometido a realizar el pago"
+        variant="success"
       />
     </div>
   </div>

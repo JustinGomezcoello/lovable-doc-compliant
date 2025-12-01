@@ -72,7 +72,7 @@ const DayByDayTab = () => {
     point_mora_pos3: "MORA POSITIVA 3",
     point_mora_pos4: "MORA POSITIVA 4",
     point_mora_pos5: "MORA POSITIVA 5",
-    point_compromiso_pago: "COMPROMISO DE PAGO",
+    point_compromiso_pago: "COMPROMISO DE PAGO CHAT",
     point_reactivacion_cobro: "REACTIVACIÓN COBRO",
     point_compromiso_pago_llamadas: "COMPROMISO PAGO LLAMADAS",
     point_mora_cero: "MORA CERO",
@@ -849,18 +849,21 @@ const DayByDayTab = () => {
                   startDate,
                   "dd/MM/yyyy"
                 )} y ${format(endDate, "dd/MM/yyyy")}`}
+                variant="primary"
               />
               <MetricCard
                 title="Costo Total"
                 value={`$${dayMetrics?.totalCost || "0.00"}`}
                 icon={DollarSign}
                 description="Estimado: mensajes enviados × $0.014"
+                variant="primary"
               />
               <MetricCard
                 title="Respondieron"
                 value={dayMetrics?.responded?.toLocaleString() || "0"}
                 icon={UserCheck}
                 description={`${dayMetrics?.responseRate || "0"}% de las personas contactadas en el rango`}
+                variant="success"
               />
             </div>
 
@@ -870,12 +873,14 @@ const DayByDayTab = () => {
                 value={dayMetrics?.notResponded?.toLocaleString() || "0"}
                 icon={UserX}
                 description="Personas contactadas que no han respondido en el rango"
+                variant="destructive"
               />
               <MetricCard
                 title="Cédulas Únicas (Rango)"
                 value={dayMetrics?.totalCedulasUnicas?.toLocaleString() || "0"}
                 icon={Users}
                 description="Total de personas distintas contactadas en todas las campañas"
+                variant="primary"
               />
             </div>
           </div>
@@ -885,7 +890,7 @@ const DayByDayTab = () => {
       {/* ================================================== */}
       {/*   DETALLE POR CAMPAÑA - DÍA ESPECÍFICO (8 TABLAS)  */}
       {/* ================================================== */}
-      <Card>
+      <Card className="border-2 border-blue-200">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Detalle por Campaña - Día Específico</CardTitle>
           <Popover>
@@ -960,7 +965,7 @@ const DayByDayTab = () => {
                   .map((campaign: any, idx: number) => (
                     <div
                       key={idx}
-                      className="p-4 border rounded-lg hover:bg-accent/50 transition-colors space-y-2"
+                      className="p-4 border-2 border-blue-200 rounded-lg hover:bg-accent/50 transition-colors space-y-2"
                     >
                       <div className="flex items-center justify-between">
                         <div>
@@ -1094,13 +1099,12 @@ const DayByDayTab = () => {
                     <strong>Mora Negativa (-5 a -1):</strong> DiasMora Equals -1/-2/-3/-4/-5, SaldoPorVencer Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null
                   </li>
                   <li>
-                    <strong>Días Mora 0:</strong> DiasMora Equals 0, SaldoPorVencer Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null
-                  </li>
-                  <li>
                     <strong>Mora Positiva (1 a 5):</strong> DiasMora Equals 1/2/3/4/5, SaldoVencido Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null
                   </li>
                 </ul>
-              </div>{/* Tabla de resultados */}
+              </div>
+
+              {/* Tabla de resultados */}
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>

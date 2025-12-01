@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, User, Phone, CreditCard, MessageCircle, Package, Bot, AlertCircle, Filter } from "lucide-react";
+import { Search, User, Phone, CreditCard, MessageCircle, Package, Bot, AlertCircle, Filter, CheckCircle, Users, MessageSquare } from "lucide-react";
+import MetricCard from "./MetricCard";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -504,7 +505,7 @@ const ConversationHistoryTab = () => {
         <p className="text-muted-foreground">Busca por cédula, celular, nombre o ID de compra para ver el historial de conversaciones del cliente</p>
       </div>
 
-      <Card>
+      <Card className="border-2 border-blue-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Search className="w-5 h-5" />
@@ -558,61 +559,85 @@ const ConversationHistoryTab = () => {
           skeletonCount={4}
         />
       ) : (
-        <>          {/* Lista de clientes */}
+        <>
+          {/* Lista de clientes */}
           {uniqueFilteredRecords && uniqueFilteredRecords.length > 0 && !selectedRecord && (
-            <Card>              <CardHeader>                <CardTitle className="flex items-center justify-between flex-wrap gap-3">
-              <span>Clientes con Conversaciones ({personasUnicas})</span>
-              <div className="flex gap-2 text-sm flex-wrap">
-                <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                  📞 Total conversaciones: {totalConversaciones}
-                </Badge>
-                <Badge variant="secondary" className="bg-purple-100 text-purple-700">
-                  👥 Personas únicas: {personasUnicas}
-                </Badge>
-                <Badge variant="secondary" className="bg-green-100 text-green-700">
-                  ✅ Con comprobante: {conComprobanteEnviado}
-                </Badge>
-                <Badge variant="secondary" className="bg-orange-100 text-orange-700">
-                  ⏳ Sin comprobante: {sinComprobanteEnviado}
-                </Badge>
-              </div>
-            </CardTitle>
-              <div className="flex gap-2 flex-wrap mt-3">
-                <p className="text-sm font-semibold text-muted-foreground">📊 Por Prioridad:</p>
-                {prioridadStats?.[5] && (
-                  <Badge className="bg-red-100 text-red-800 border-red-300">
-                    🔥 P5: {prioridadStats[5]}
-                  </Badge>
-                )}
-                {prioridadStats?.[4] && (
-                  <Badge className="bg-orange-100 text-orange-800 border-orange-300">
-                    ⚠️ P4: {prioridadStats[4]}
-                  </Badge>
-                )}
-                {prioridadStats?.[3] && (
-                  <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                    ⏰ P3: {prioridadStats[3]}
-                  </Badge>
-                )}
-                {prioridadStats?.[2] && (
-                  <Badge className="bg-green-100 text-green-800 border-green-300">
-                    ✅ P2: {prioridadStats[2]}
-                  </Badge>
-                )}
-                {prioridadStats?.[1] && (
-                  <Badge className="bg-gray-100 text-gray-600 border-gray-300">
-                    📁 P1: {prioridadStats[1]}
-                  </Badge>
-                )}
-              </div>
-            </CardHeader><CardContent>
+            <Card className="border-2 border-blue-200">
+              <CardHeader>
+                <CardTitle>Clientes con Conversaciones ({personasUnicas})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  <MetricCard
+                    title="Total Conversaciones"
+                    value={totalConversaciones}
+                    icon={MessageSquare}
+                    variant="primary"
+                    description="Total de chats registrados"
+                  />
+                  <MetricCard
+                    title="Personas Únicas"
+                    value={personasUnicas}
+                    icon={Users}
+                    variant="primary"
+                    description="Clientes únicos atendidos"
+                  />
+                  <MetricCard
+                    title="Con Comprobante"
+                    value={conComprobanteEnviado}
+                    icon={CheckCircle}
+                    variant="success"
+                    description="Enviaron comprobante"
+                  />
+                  <MetricCard
+                    title="Sin Comprobante"
+                    value={sinComprobanteEnviado}
+                    icon={AlertCircle}
+                    variant="destructive"
+                    description="Pendientes de comprobante"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+                  <div className="flex gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-muted-foreground">📊 Por Prioridad:</p>
+                    {prioridadStats?.[5] && (
+                      <Badge className="bg-red-100 text-red-800 border-red-300">
+                        🔥 P5: {prioridadStats[5]}
+                      </Badge>
+                    )}
+                    {prioridadStats?.[4] && (
+                      <Badge className="bg-orange-100 text-orange-800 border-orange-300">
+                        ⚠️ P4: {prioridadStats[4]}
+                      </Badge>
+                    )}
+                    {prioridadStats?.[3] && (
+                      <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                        ⏰ P3: {prioridadStats[3]}
+                      </Badge>
+                    )}
+                    {prioridadStats?.[2] && (
+                      <Badge className="bg-green-100 text-green-800 border-green-300">
+                        ✅ P2: {prioridadStats[2]}
+                      </Badge>
+                    )}
+                    {prioridadStats?.[1] && (
+                      <Badge className="bg-gray-100 text-gray-600 border-gray-300">
+                        📁 P1: {prioridadStats[1]}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
                 <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
                   <p className="text-sm text-purple-800">
                     <strong>ℹ️ Nota:</strong> Esta lista muestra <strong>personas únicas</strong> ({personasUnicas} clientes).
                     Si una persona tiene múltiples conversaciones, solo se muestra su conversación más reciente.
                     El total de conversaciones registradas en el sistema es <strong>{totalConversaciones}</strong>.
                   </p>
-                </div>                <ScrollArea className="h-[400px]">
+                </div>
+
+                <ScrollArea className="h-[400px]">
                   <div className="space-y-2">
                     {uniqueFilteredRecords.map((record) => {
                       const priority = calculatePriority(record);
@@ -621,7 +646,7 @@ const ConversationHistoryTab = () => {
                       return (
                         <div
                           key={record.Cedula}
-                          className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                          className="p-4 border-2 border-blue-200 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                           onClick={() => setSelectedRecord(record)}
                         >
                           <div className="flex justify-between items-start gap-3">
@@ -641,7 +666,9 @@ const ConversationHistoryTab = () => {
                                 <p>🛒 Última compra: {record.idCompra}</p>
                                 {record.Articulo && <p>📦 Artículo: {record.Articulo}</p>}
                                 {record.SaldoVencido !== undefined && record.SaldoVencido > 0 && (
-                                  <p className="font-semibold text-red-600">💰 Saldo Vencido: ${record.SaldoVencido.toFixed(2)}</p>
+                                  <div className="mt-1 px-2 py-1 rounded-md border-2 border-blue-200 hover:border-blue-600 hover:scale-105 transition-all duration-300 w-fit bg-white/50">
+                                    <p className="font-semibold text-red-600">💰 Saldo Vencido: ${record.SaldoVencido.toFixed(2)}</p>
+                                  </div>
                                 )}
                               </div>
                               <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
@@ -673,305 +700,309 @@ const ConversationHistoryTab = () => {
                     })}
                   </div>
                 </ScrollArea>
-              </CardContent>
-            </Card>
+              </CardContent >
+            </Card >
           )}
 
           {/* Detalle del cliente seleccionado */}
-          {selectedRecord && (
-            <div className="space-y-4">
-              <Button
-                variant="outline"
-                onClick={() => setSelectedRecord(null)}
-                className="mb-4"
-              >
-                ← Volver a la lista
-              </Button>
+          {
+            selectedRecord && (
+              <div className="space-y-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedRecord(null)}
+                  className="mb-4"
+                >
+                  ← Volver a la lista
+                </Button>
 
-              {isLoadingDetail ? (
-                <LoadingState
-                  title="Cargando detalles del cliente..."
-                  message="Obteniendo información completa y historial de conversaciones."
-                  skeletonCount={3}
-                />
-              ) : customerData?.customer ? (
-                <>                  {/* Customer Information Card */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 justify-between flex-wrap">
-                        <span className="flex items-center gap-2">
-                          <User className="w-5 h-5" />
-                          Información del Cliente
-                        </span>
+                {isLoadingDetail ? (
+                  <LoadingState
+                    title="Cargando detalles del cliente..."
+                    message="Obteniendo información completa y historial de conversaciones."
+                    skeletonCount={3}
+                  />
+                ) : customerData?.customer ? (
+                  <>                  {/* Customer Information Card */}
+                    <Card className="border-2 border-blue-200">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 justify-between flex-wrap">
+                          <span className="flex items-center gap-2">
+                            <User className="w-5 h-5" />
+                            Información del Cliente
+                          </span>
+                          {(() => {
+                            const priority = calculatePriority(customerData.customer);
+                            const priorityBadge = getPriorityBadge(priority.prioridad);
+                            return (
+                              <Badge className={`text-sm font-bold border ${priorityBadge.color}`}>
+                                {priorityBadge.emoji} Prioridad {priority.prioridad} - {priorityBadge.label}
+                              </Badge>
+                            );
+                          })()}
+                        </CardTitle>
                         {(() => {
                           const priority = calculatePriority(customerData.customer);
-                          const priorityBadge = getPriorityBadge(priority.prioridad);
                           return (
-                            <Badge className={`text-sm font-bold border ${priorityBadge.color}`}>
-                              {priorityBadge.emoji} Prioridad {priority.prioridad} - {priorityBadge.label}
-                            </Badge>
+                            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <p className="text-sm font-semibold text-blue-800">📋 Análisis de Prioridad:</p>
+                              <p className="text-sm text-blue-700 mt-1">{priority.prioridad_porque}</p>
+                              <p className="text-sm text-blue-600 mt-1">🎯 Nivel de Confianza: {(priority.confianza * 100).toFixed(0)}%</p>
+                            </div>
                           );
                         })()}
-                      </CardTitle>
-                      {(() => {
-                        const priority = calculatePriority(customerData.customer);
-                        return (
-                          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <p className="text-sm font-semibold text-blue-800">📋 Análisis de Prioridad:</p>
-                            <p className="text-sm text-blue-700 mt-1">{priority.prioridad_porque}</p>
-                            <p className="text-sm text-blue-600 mt-1">🎯 Nivel de Confianza: {(priority.confianza * 100).toFixed(0)}%</p>
-                          </div>
-                        );
-                      })()}
-                    </CardHeader>                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                          <User className="w-5 h-5 text-primary" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">Cliente</p>
-                            <p className="font-semibold">{customerData.customer.Cliente || "N/A"}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                          <CreditCard className="w-5 h-5 text-primary" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">Cédula</p>
-                            <p className="font-semibold">{customerData.customer.Cedula || "N/A"}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                          <Phone className="w-5 h-5 text-primary" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">Celular</p>
-                            <p className="font-semibold">{customerData.customer.Celular || "N/A"}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                          <Package className="w-5 h-5 text-primary" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">Artículo</p>
-                            <p className="font-semibold">{customerData.customer.Articulo || "N/A"}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                          <MessageCircle className="w-5 h-5 text-primary" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">ID de Compra</p>
-                            <p className="font-semibold">{customerData.customer.idCompra || "N/A"}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                          <MessageCircle className="w-5 h-5 text-primary" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">ID Conversación</p>
-                            <p className="font-semibold">{customerData.customer.conversation_id || "N/A"}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                          <div className="w-5 h-5" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">Estado de Comprobante</p>
-                            {customerData.customer.ComprobanteEnviado === "SI" ? (
-                              <Badge className="bg-green-500 hover:bg-green-600">
-                                Comprobante Enviado
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="border-orange-500 text-orange-500">
-                                Pendiente
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        {customerData.customer.SaldoVencido !== undefined && (
-                          <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                            <AlertCircle className="w-5 h-5 text-red-600" />
+                      </CardHeader>                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                            <User className="w-5 h-5 text-primary" />
                             <div>
-                              <p className="text-sm text-muted-foreground">Saldo Vencido</p>
-                              <p className="font-bold text-red-600">${customerData.customer.SaldoVencido.toFixed(2)}</p>
+                              <p className="text-sm text-muted-foreground">Cliente</p>
+                              <p className="font-semibold">{customerData.customer.Cliente || "N/A"}</p>
                             </div>
                           </div>
-                        )}
 
-                        {customerData.customer.RestanteSaldoVencido !== undefined && customerData.customer.RestanteSaldoVencido > 0 && (
-                          <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
-                            <AlertCircle className="w-5 h-5 text-orange-600" />
-                            <div>
-                              <p className="text-sm text-muted-foreground">Saldo Restante</p>
-                              <p className="font-bold text-orange-600">${customerData.customer.RestanteSaldoVencido.toFixed(2)}</p>
-                            </div>
-                          </div>
-                        )}
-
-                        {customerData.customer.TipoDePago && (
                           <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                             <CreditCard className="w-5 h-5 text-primary" />
                             <div>
-                              <p className="text-sm text-muted-foreground">Tipo de Pago</p>
-                              <p className="font-semibold capitalize">{customerData.customer.TipoDePago}</p>
+                              <p className="text-sm text-muted-foreground">Cédula</p>
+                              <p className="font-semibold">{customerData.customer.Cedula || "N/A"}</p>
                             </div>
                           </div>
-                        )}
 
-                        {customerData.customer.compromiso_pago_fecha && (
-                          <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                            <Package className="w-5 h-5 text-purple-600" />
-                            <div>
-                              <p className="text-sm text-muted-foreground">Compromiso de Pago</p>
-                              <p className="font-bold text-purple-600">
-                                {new Date(customerData.customer.compromiso_pago_fecha).toLocaleDateString('es', {
-                                  day: '2-digit',
-                                  month: 'long',
-                                  year: 'numeric'
-                                })}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {customerData.customer.LlamarOtraVez && (
                           <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                             <Phone className="w-5 h-5 text-primary" />
                             <div>
-                              <p className="text-sm text-muted-foreground">Llamar Otra Vez</p>
-                              <Badge className={customerData.customer.LlamarOtraVez === "SI" ? "bg-orange-500" : "bg-gray-500"}>
-                                {customerData.customer.LlamarOtraVez || "NO"}
-                              </Badge>
+                              <p className="text-sm text-muted-foreground">Celular</p>
+                              <p className="font-semibold">{customerData.customer.Celular || "N/A"}</p>
                             </div>
                           </div>
-                        )}
 
-                        {customerData.customer.DiceQueYaPago && (
-                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                            <MessageCircle className="w-5 h-5 text-primary" />
-                            <div>
-                              <p className="text-sm text-muted-foreground">Dice Que Ya Pagó</p>
-                              <Badge className={customerData.customer.DiceQueYaPago === "SI" ? "bg-blue-500" : "bg-gray-500"}>
-                                {customerData.customer.DiceQueYaPago || "NO"}
-                              </Badge>
-                            </div>
-                          </div>
-                        )}
-
-                        {customerData.customer.EstadoEtiqueta && (
                           <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                             <Package className="w-5 h-5 text-primary" />
                             <div>
-                              <p className="text-sm text-muted-foreground">Estado/Etiqueta</p>
-                              <Badge variant="outline">{customerData.customer.EstadoEtiqueta}</Badge>
+                              <p className="text-sm text-muted-foreground">Artículo</p>
+                              <p className="font-semibold">{customerData.customer.Articulo || "N/A"}</p>
                             </div>
                           </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
 
-                  {/* Conversation History Card */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <MessageCircle className="w-5 h-5" />
-                        Historial de Conversación
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {!customerData.conversations || customerData.conversations.mensajes.length === 0 ? (
-                        <div className="text-center py-12">
-                          <MessageCircle className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                          <p className="text-lg font-medium text-muted-foreground">
-                            No hay conversaciones disponibles
-                          </p>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Este cliente no tiene historial de conversaciones registrado
-                          </p>
+                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                            <MessageCircle className="w-5 h-5 text-primary" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">ID de Compra</p>
+                              <p className="font-semibold">{customerData.customer.idCompra || "N/A"}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                            <MessageCircle className="w-5 h-5 text-primary" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">ID Conversación</p>
+                              <p className="font-semibold">{customerData.customer.conversation_id || "N/A"}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                            <div className="w-5 h-5" />
+                            <div>
+                              <p className="text-sm text-muted-foreground">Estado de Comprobante</p>
+                              {customerData.customer.ComprobanteEnviado === "SI" ? (
+                                <Badge className="bg-green-500 hover:bg-green-600">
+                                  Comprobante Enviado
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="border-orange-500 text-orange-500">
+                                  Pendiente
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          {customerData.customer.SaldoVencido !== undefined && (
+                            <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                              <AlertCircle className="w-5 h-5 text-red-600" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Saldo Vencido</p>
+                                <p className="font-bold text-red-600">${customerData.customer.SaldoVencido.toFixed(2)}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {customerData.customer.RestanteSaldoVencido !== undefined && customerData.customer.RestanteSaldoVencido > 0 && (
+                            <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                              <AlertCircle className="w-5 h-5 text-orange-600" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Saldo Restante</p>
+                                <p className="font-bold text-orange-600">${customerData.customer.RestanteSaldoVencido.toFixed(2)}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {customerData.customer.TipoDePago && (
+                            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                              <CreditCard className="w-5 h-5 text-primary" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Tipo de Pago</p>
+                                <p className="font-semibold capitalize">{customerData.customer.TipoDePago}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {customerData.customer.compromiso_pago_fecha && (
+                            <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                              <Package className="w-5 h-5 text-purple-600" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Compromiso de Pago</p>
+                                <p className="font-bold text-purple-600">
+                                  {new Date(customerData.customer.compromiso_pago_fecha).toLocaleDateString('es', {
+                                    day: '2-digit',
+                                    month: 'long',
+                                    year: 'numeric'
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {customerData.customer.LlamarOtraVez && (
+                            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                              <Phone className="w-5 h-5 text-primary" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Llamar Otra Vez</p>
+                                <Badge className={customerData.customer.LlamarOtraVez === "SI" ? "bg-orange-500" : "bg-gray-500"}>
+                                  {customerData.customer.LlamarOtraVez || "NO"}
+                                </Badge>
+                              </div>
+                            </div>
+                          )}
+
+                          {customerData.customer.DiceQueYaPago && (
+                            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                              <MessageCircle className="w-5 h-5 text-primary" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Dice Que Ya Pagó</p>
+                                <Badge className={customerData.customer.DiceQueYaPago === "SI" ? "bg-blue-500" : "bg-gray-500"}>
+                                  {customerData.customer.DiceQueYaPago || "NO"}
+                                </Badge>
+                              </div>
+                            </div>
+                          )}
+
+                          {customerData.customer.EstadoEtiqueta && (
+                            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                              <Package className="w-5 h-5 text-primary" />
+                              <div>
+                                <p className="text-sm text-muted-foreground">Estado/Etiqueta</p>
+                                <Badge variant="outline">{customerData.customer.EstadoEtiqueta}</Badge>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <ScrollArea className="h-[600px] pr-4">
-                          <div className="space-y-3 py-2">                            {customerData.conversations.mensajes.map((msg: ConversationMessage, idx: number) => {
-                            const messageText = parseMessage(msg);
-                            const isBot = msg.rol === "BOT";
-                            const timestamp = new Date(msg.fecha_iso).toLocaleString('es-ES', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              day: '2-digit',
-                              month: '2-digit',
-                              year: 'numeric'
-                            });
+                      </CardContent>
+                    </Card>
 
-                            // Filtrar mensajes nulos (estados del bot) y mensajes vacíos
-                            if (messageText === null || !messageText || messageText.trim() === "") return null;
+                    {/* Conversation History Card */}
+                    <Card className="border-2 border-blue-200">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <MessageCircle className="w-5 h-5" />
+                          Historial de Conversación
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {!customerData.conversations || customerData.conversations.mensajes.length === 0 ? (
+                          <div className="text-center py-12">
+                            <MessageCircle className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                            <p className="text-lg font-medium text-muted-foreground">
+                              No hay conversaciones disponibles
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Este cliente no tiene historial de conversaciones registrado
+                            </p>
+                          </div>
+                        ) : (
+                          <ScrollArea className="h-[600px] pr-4">
+                            <div className="space-y-3 py-2">                            {customerData.conversations.mensajes.map((msg: ConversationMessage, idx: number) => {
+                              const messageText = parseMessage(msg);
+                              const isBot = msg.rol === "BOT";
+                              const timestamp = new Date(msg.fecha_iso).toLocaleString('es-ES', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              });
 
-                            return (
-                              <div
-                                key={msg.id || idx}
-                                className={`flex ${!isBot ? 'justify-start' : 'justify-end'}`}
-                              >
-                                <div className={`flex flex-col ${!isBot ? 'items-start' : 'items-end'} max-w-[75%]`}>
-                                  <div className="text-xs text-muted-foreground mb-1 px-2">
-                                    {!isBot ? customerData.customer.Cliente : "Bot POINT"}
-                                  </div>
-                                  <div
-                                    className={`rounded-2xl px-4 py-2.5 ${!isBot
-                                      ? 'bg-muted text-foreground rounded-tl-none'
-                                      : 'bg-primary text-primary-foreground rounded-tr-none'
-                                      }`}                                    >
-                                    {messageText.includes('<strong>') ? (
-                                      <p
-                                        className="text-sm whitespace-pre-wrap break-words"
-                                        dangerouslySetInnerHTML={{ __html: messageText }}
-                                      />
-                                    ) : (
-                                      <p className="text-sm whitespace-pre-wrap break-words">
-                                        {messageText}
-                                      </p>
-                                    )}
-                                    <div className={`text-[10px] mt-1 ${!isBot ? 'text-muted-foreground' : 'text-primary-foreground/70'}`}>
-                                      {timestamp}
+                              // Filtrar mensajes nulos (estados del bot) y mensajes vacíos
+                              if (messageText === null || !messageText || messageText.trim() === "") return null;
+
+                              return (
+                                <div
+                                  key={msg.id || idx}
+                                  className={`flex ${!isBot ? 'justify-start' : 'justify-end'}`}
+                                >
+                                  <div className={`flex flex-col ${!isBot ? 'items-start' : 'items-end'} max-w-[75%]`}>
+                                    <div className="text-xs text-muted-foreground mb-1 px-2">
+                                      {!isBot ? customerData.customer.Cliente : "Bot POINT"}
+                                    </div>
+                                    <div
+                                      className={`rounded-2xl px-4 py-2.5 ${!isBot
+                                        ? 'bg-muted text-foreground rounded-tl-none'
+                                        : 'bg-primary text-primary-foreground rounded-tr-none'
+                                        }`}                                    >
+                                      {messageText.includes('<strong>') ? (
+                                        <p
+                                          className="text-sm whitespace-pre-wrap break-words"
+                                          dangerouslySetInnerHTML={{ __html: messageText }}
+                                        />
+                                      ) : (
+                                        <p className="text-sm whitespace-pre-wrap break-words">
+                                          {messageText}
+                                        </p>
+                                      )}
+                                      <div className={`text-[10px] mt-1 ${!isBot ? 'text-muted-foreground' : 'text-primary-foreground/70'}`}>
+                                        {timestamp}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                          </div>
-                        </ScrollArea>
-                      )}
-                    </CardContent>
-                  </Card>
-                </>
-              ) : (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Error al cargar el historial de conversación. Por favor intenta nuevamente.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          )}
+                              );
+                            })}
+                            </div>
+                          </ScrollArea>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </>
+                ) : (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Error al cargar el historial de conversación. Por favor intenta nuevamente.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )
+          }
 
-          {!isLoadingAll && uniqueFilteredRecords && uniqueFilteredRecords.length === 0 && (
-            <Card>
-              <CardContent className="py-12">
-                <div className="text-center">
-                  <Search className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium text-muted-foreground">
-                    No se encontraron resultados
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Intenta buscar con otra cédula, celular, nombre o ID de compra
-                  </p>
-                </div>
-              </CardContent>            </Card>
-          )}
+          {
+            !isLoadingAll && uniqueFilteredRecords && uniqueFilteredRecords.length === 0 && (
+              <Card className="border-2 border-blue-200">
+                <CardContent className="py-12">
+                  <div className="text-center">
+                    <Search className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-lg font-medium text-muted-foreground">
+                      No se encontraron resultados
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Intenta buscar con otra cédula, celular, nombre o ID de compra
+                    </p>
+                  </div>
+                </CardContent>            </Card>
+            )
+          }
         </>
       )}
-    </div>
+    </div >
   );
 };
 

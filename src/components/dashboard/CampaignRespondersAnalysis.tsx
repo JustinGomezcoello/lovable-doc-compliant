@@ -147,8 +147,9 @@ export const CampaignRespondersAnalysis = ({
       // Identificar tipo de campaña (MOVIDO ARRIBA para usar en deduplicación)
       const isNegativeCampaign = campaignDiasMora !== null && campaignDiasMora < 0;
       const isPositiveCampaign = campaignDiasMora !== null && campaignDiasMora > 0;
-      const isCompromisoPago = campaignName.includes("COMPROMISO DE PAGO");
+      const isCompromisoPago = campaignName.includes("COMPROMISO PAGO");
       const isReactivacion = campaignName.includes("REACTIVACIÓN") || campaignName.includes("REACTIVACION");
+      const isMoraCero = campaignName.includes("MORA CERO");
 
       // ✅ ELIMINAR DUPLICADOS POR CÉDULA (mantener solo uno por persona)
       // Lógica: Agrupar por Cédula y priorizar el registro que coincide con el DiasMora de la campaña
@@ -193,6 +194,7 @@ export const CampaignRespondersAnalysis = ({
         isPositiveCampaign,
         isCompromisoPago,
         isReactivacion,
+        isMoraCero
       });
 
       // 1. PERSONAS QUE YA PAGARON COMPLETAMENTE
@@ -253,12 +255,12 @@ export const CampaignRespondersAnalysis = ({
       // 4. PERSONAS QUE YA NO DEBEN NADA (saldo = 0 en el sistema)
       // Lógica por tipo de campaña:
       // - Campañas positivas (1-5) + REACTIVACIÓN: SaldoVencido = 0
-      // - Campañas negativas (-5 a -1): SaldoPorVencer = 0
+      // - Campañas negativas (-5 a -1) + MORA CERO: SaldoPorVencer = 0
       // - COMPROMISO DE PAGO: SaldoVencido = 0 AND SaldoPorVencer = 0
       const noDebtAnymore = uniqueResponders.filter(r => {
         if (isPositiveCampaign || isReactivacion) {
           return r.SaldoVencido === 0;
-        } else if (isNegativeCampaign) {
+        } else if (isNegativeCampaign || isMoraCero) {
           return r.SaldoPorVencer === 0;
         } else if (isCompromisoPago) {
           return r.SaldoVencido === 0 && r.SaldoPorVencer === 0;
@@ -271,27 +273,43 @@ export const CampaignRespondersAnalysis = ({
       let totalPendingDebt = 0;
 
       uniqueResponders.forEach(r => {
-        // Si pagó TODO (TipoDePago = Total) → deuda = 0
-        if (r.TipoDePago === 'Total') {
+        // 1. Si envió comprobante (ComprobanteEnviado = SI) → deuda = 0 (En revisión)
+        if (r.ComprobanteEnviado?.trim().toLowerCase() === 'si') {
           totalPendingDebt += 0;
         }
-        // Si pagó PARCIAL (TipoDePago = Parcial) → deuda = saldo restante
+        // 2. Si pagó TODO (TipoDePago = Total) → deuda = 0
+        else if (r.TipoDePago === 'Total') {
+          totalPendingDebt += 0;
+        }
+        // 3. Si pagó PARCIAL (TipoDePago = Parcial) → deuda = saldo restante
         else if (r.TipoDePago === 'Parcial') {
           totalPendingDebt += (r.RestanteSaldoVencido || 0);
         }
-        // Si NO ha pagado (TipoDePago = null o vacío) → calcular según tipo de campaña
+        // 4. Si NO ha pagado → calcular según Tipo de Campaña (Prioridad)
         else {
           // CAMPAÑAS POSITIVAS (1-5) + REACTIVACIÓN COBRO → Usar SaldoVencido
           if (isPositiveCampaign || isReactivacion) {
             totalPendingDebt += (r.SaldoVencido || 0);
           }
-          // CAMPAÑAS NEGATIVAS (-5 a -1) → Usar SaldoPorVencer
-          else if (isNegativeCampaign) {
+          // CAMPAÑAS NEGATIVAS (-5 a -1) + MORA CERO → Usar SaldoPorVencer
+          else if (isNegativeCampaign || isMoraCero) {
             totalPendingDebt += (r.SaldoPorVencer || 0);
           }
-          // COMPROMISO DE PAGO → Sumar ambos
+          // COMPROMISO DE PAGO → Lógica condicional según Días Mora
           else if (isCompromisoPago) {
-            totalPendingDebt += (r.SaldoVencido || 0) + (r.SaldoPorVencer || 0);
+            if (r.DiasMora !== null && r.DiasMora <= 0) {
+              totalPendingDebt += (r.SaldoPorVencer || 0);
+            } else {
+              totalPendingDebt += (r.SaldoVencido || 0);
+            }
+          }
+          // Fallback: Lógica basada en Días Mora si no coincide campaña
+          else if (r.DiasMora !== null && r.DiasMora !== undefined) {
+            if (r.DiasMora <= 0) {
+              totalPendingDebt += (r.SaldoPorVencer || 0);
+            } else {
+              totalPendingDebt += (r.SaldoVencido || 0);
+            }
           }
         }
       });
@@ -547,7 +565,7 @@ export const CampaignRespondersAnalysis = ({
                           <th className="text-center p-2 font-semibold">Días Mora</th>
                           <th className="text-center p-2 font-semibold">Comprobante Enviado</th>
                           <th className="text-center p-2 font-semibold">Estado Etiqueta</th>
-                          <th className="text-center p-2 font-semibold">Agendó Compromiso</th>
+                          <th className="text-center p-2 font-semibold">Agendó Compromiso en Chat</th>
                           <th className="text-center p-2 font-semibold">Tipo Pago</th>
                           <th className="text-right p-2 font-semibold">Saldo Restante</th>
                         </tr>
@@ -558,20 +576,43 @@ export const CampaignRespondersAnalysis = ({
                           const campaignDiasMora = getCampaignDiasMora(campaignName);
                           const isNegativeCampaign = campaignDiasMora !== null && campaignDiasMora < 0;
                           const isPositiveCampaign = campaignDiasMora !== null && campaignDiasMora > 0;
-                          const isCompromisoPago = campaignName.includes("COMPROMISO DE PAGO");
+                          const isCompromisoPago = campaignName.includes("COMPROMISO PAGO");
                           const isReactivacion = campaignName.includes("REACTIVACIÓN") || campaignName.includes("REACTIVACION");
+                          const isMoraCero = campaignName.includes("MORA CERO");
 
                           // Determinar deuda relevante según tipo de campaña
                           let relevantDebt = 0;
-                          if (isPositiveCampaign || isReactivacion) {
-                            // Campañas positivas (1-5) + REACTIVACIÓN → Usar SaldoVencido
-                            relevantDebt = responder.SaldoVencido || 0;
-                          } else if (isNegativeCampaign) {
-                            // Campañas negativas (-5 a -1) → Usar SaldoPorVencer
-                            relevantDebt = responder.SaldoPorVencer || 0;
-                          } else if (isCompromisoPago) {
-                            // COMPROMISO DE PAGO → Sumar ambos
-                            relevantDebt = (responder.SaldoVencido || 0) + (responder.SaldoPorVencer || 0);
+
+                          // 1. Si envió comprobante (ComprobanteEnviado = SI) → deuda = 0 (En revisión)
+                          if (responder.ComprobanteEnviado?.trim().toLowerCase() === 'si') {
+                            relevantDebt = 0;
+                          }
+                          // 2. Si no ha enviado comprobante, calcular según Tipo de Campaña (Prioridad)
+                          else {
+                            // CAMPAÑAS POSITIVAS (1-5) + REACTIVACIÓN COBRO → Usar SaldoVencido
+                            if (isPositiveCampaign || isReactivacion) {
+                              relevantDebt = responder.SaldoVencido || 0;
+                            }
+                            // CAMPAÑAS NEGATIVAS (-5 a -1) + MORA CERO → Usar SaldoPorVencer
+                            else if (isNegativeCampaign || isMoraCero) {
+                              relevantDebt = responder.SaldoPorVencer || 0;
+                            }
+                            // COMPROMISO DE PAGO → Lógica condicional según Días Mora
+                            else if (isCompromisoPago) {
+                              if (responder.DiasMora !== null && responder.DiasMora <= 0) {
+                                relevantDebt = responder.SaldoPorVencer || 0;
+                              } else {
+                                relevantDebt = responder.SaldoVencido || 0;
+                              }
+                            }
+                            // Fallback: Lógica basada en Días Mora si no coincide campaña
+                            else if (responder.DiasMora !== null && responder.DiasMora !== undefined) {
+                              if (responder.DiasMora <= 0) {
+                                relevantDebt = responder.SaldoPorVencer || 0;
+                              } else {
+                                relevantDebt = responder.SaldoVencido || 0;
+                              }
+                            }
                           }
 
                           // Verificar comprobante enviado (2 condiciones principales)
