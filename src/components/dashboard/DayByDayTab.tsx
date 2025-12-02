@@ -965,7 +965,7 @@ const DayByDayTab = () => {
                   .map((campaign: any, idx: number) => (
                     <div
                       key={idx}
-                      className="p-4 border-2 border-blue-200 rounded-lg hover:bg-accent/50 transition-colors space-y-2"
+                      className="p-4 border-2 border-blue-200 rounded-lg hover:from-blue-50 hover:to-blue-100 transition-colors space-y-2 bg-gradient-to-br from-white to-blue-50"
                     >
                       <div className="flex items-center justify-between">
                         <div>
@@ -1096,7 +1096,7 @@ const DayByDayTab = () => {
                 <p className="font-semibold text-blue-900">Filtros aplicados (5 filtros cada campaña):</p>
                 <ul className="list-disc list-inside text-blue-800 space-y-1">
                   <li>
-                    <strong>Mora Negativa (-5 a -1):</strong> DiasMora Equals -1/-2/-3/-4/-5, SaldoPorVencer Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null
+                    <strong>Mora Negativa (-5 a 0):</strong> DiasMora Equals 0/-1/-2/-3/-4/-5, SaldoPorVencer Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null
                   </li>
                   <li>
                     <strong>Mora Positiva (1 a 5):</strong> DiasMora Equals 1/2/3/4/5, SaldoVencido Greater Than 5, compromiso_pago_fecha Is null, Pagado Equals NO, ComprobanteEnviado Is null
