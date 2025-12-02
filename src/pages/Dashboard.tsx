@@ -21,10 +21,10 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">      <header className="border-b bg-card shadow-sm">
+    <div className="min-h-screen bg-blue-50">      <header className="border-b bg-card shadow-sm">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold text-black">
             Cobranza POINT Dashboard
           </h1>
           <p className="text-sm text-muted-foreground">Sistema de Gestión de Cobranzas</p>
@@ -34,7 +34,7 @@ const Dashboard = () => {
             <Home className="w-4 h-4 mr-2" />
             Volver al Inicio
           </Button>
-          <Button variant="outline" onClick={handleLogout}>
+          <Button variant="outline" onClick={handleLogout} className="text-blue-600 border-blue-200 hover:bg-blue-50">
             <LogOut className="w-4 h-4 mr-2" />
             Cerrar Sesión
           </Button>
@@ -42,10 +42,10 @@ const Dashboard = () => {
       </div>
     </header><main className="container mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="day-by-day">Día a Día</TabsTrigger>
-            <TabsTrigger value="conversations">Ver Conversaciones</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 border-2 border-blue-600 bg-blue-100">
+            <TabsTrigger value="general" className="text-blue-600 data-[state=active]:text-blue-800">General</TabsTrigger>
+            <TabsTrigger value="day-by-day" className="text-blue-600 data-[state=active]:text-blue-800">Día a Día</TabsTrigger>
+            <TabsTrigger value="conversations" className="text-blue-600 data-[state=active]:text-blue-800">Ver Conversaciones</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" className="space-y-6">
