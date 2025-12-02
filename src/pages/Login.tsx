@@ -5,13 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Lock, User } from "lucide-react";
+import { Lock, User, Eye, EyeOff } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false); const handleLogin = (e: React.FormEvent) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
@@ -46,48 +49,62 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
-      <Card className="w-full max-w-md shadow-elevated">
-        <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center mb-2">
-            <Lock className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <CardTitle className="text-3xl font-bold">Cobranza POINT</CardTitle>
-          <CardDescription>Dashboard de Métricas y Campañas</CardDescription>
+    <div
+      className="min-h-screen flex items-center justify-center bg-cover bg-center p-4"
+      style={{ backgroundImage: 'url("/login-bg.png")' }}
+    >
+      <Card className="w-full max-w-[550px] shadow-2xl bg-[#F8F9FA] border-none rounded-2xl relative z-10">
+        <CardHeader className="space-y-1 text-center pt-10 pb-6">
+          <CardTitle className="text-[28px] font-bold text-[#1A1F2C]">Iniciar Sesión</CardTitle>
+          <CardDescription className="text-[#64748B] text-base">Ingresa a tu cuenta de SIMPLIA</CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">            <div className="space-y-2">
-            <Label htmlFor="username">Usuario</Label>
-            <div className="relative">
-              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="username"
-                type="text"
-                placeholder="point"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="pl-10"
-                required
-                autoComplete="off"
-              />
-            </div>
-          </div>
+        <CardContent className="px-8 pb-10">
+          <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
+              <Label htmlFor="username" className="text-[#1A1F2C] font-semibold text-sm">Usuario</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <User className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" strokeWidth={1.5} />
                 <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="pl-12 h-12 bg-white border-gray-200 focus:border-[#6366F1] focus:ring-0 rounded-lg text-base"
                   required
+                  autoComplete="off"
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-[#1A1F2C] font-semibold text-sm">Contraseña</Label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" strokeWidth={1.5} />
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-12 pr-12 h-12 bg-white border-gray-200 focus:border-[#6366F1] focus:ring-0 rounded-lg text-base"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-3.5 text-gray-400 hover:text-gray-600 focus:outline-none"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" strokeWidth={1.5} />
+                  ) : (
+                    <Eye className="h-5 w-5" strokeWidth={1.5} />
+                  )}
+                </button>
+              </div>
+            </div>
+            <Button
+              type="submit"
+              className="w-full h-12 text-base font-semibold text-white bg-gradient-to-r from-[#5B42F3] to-[#D91A5C] hover:opacity-90 transition-opacity rounded-lg mt-2"
+              disabled={loading}
+            >
               {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
           </form>
