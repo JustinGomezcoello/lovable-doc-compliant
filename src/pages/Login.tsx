@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Lock, User, Eye, EyeOff } from "lucide-react";
+import { Lock, User, Eye, EyeOff, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -14,36 +15,82 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // CREDENCIALES FIJAS - ACTUALIZADAS 2025-11-24
-    const USUARIO_VALIDO = "point";
-    const PASSWORD_VALIDA = "point";
+    try {
+      // Mapeo de usuario "point" a email real para compatibilidad
+      const emailToUse = username.toLowerCase() === "point"
+        ? "point@point.com"
+        : username;
 
-    console.log("🔐 === INICIO DE SESIÓN ===");
-    console.log("Usuario ingresado:", username);
-    console.log("Password ingresado:", password);
-    console.log("Usuario correcto:", USUARIO_VALIDO);
-    console.log("Password correcta:", PASSWORD_VALIDA);
+      // Mapeo de contraseña "point" a "point123" para cumplir longitud mínima de Supabase (6 chars)
+      const passwordToUse = password === "point"
+        ? "point123"
+        : password;
 
-    // Validación simple y directa
-    if (username === USUARIO_VALIDO && password === PASSWORD_VALIDA) {
-      console.log("✅ ¡CREDENCIALES CORRECTAS!");
-      sessionStorage.setItem("authenticated", "true");
-      sessionStorage.setItem("loginTime", new Date().toISOString());
-      toast.success("¡Bienvenido a Cobranza POINT!");
+      console.log("🔐 === INTENTO DE INICIO DE SESIÓN ===");
+      console.log("Usuario/Email:", emailToUse);
 
-      // Pequeño delay para que se vea el toast
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 500);
-    } else {
-      console.log("❌ CREDENCIALES INCORRECTAS");
-      toast.error("Usuario o contraseña incorrectos", {
-        description: "Verifica tus credenciales e intenta nuevamente"
+      // 1. Intentar iniciar sesión con credenciales mapeadas
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: emailToUse,
+        password: passwordToUse,
       });
+
+      if (error) {
+        console.error("❌ Error de autenticación:", error.message);
+
+        // 2. Si falla y es el usuario "point", intentar registrarlo automáticamente con la contraseña mapeada
+        if (error.message.includes("Invalid login credentials") && username.toLowerCase() === "point") {
+          console.log("⚠️ Usuario no encontrado o contraseña incorrecta. Intentando registro automático para 'point'...");
+
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: emailToUse,
+            password: passwordToUse,
+          });
+
+          if (signUpError) {
+            console.error("❌ Error al registrar:", signUpError.message);
+            toast.error("No se pudo iniciar sesión ni registrar", {
+              description: signUpError.message
+            });
+            return;
+          }
+
+          if (signUpData.session) {
+            console.log("✅ ¡USUARIO REGISTRADO Y SESIÓN INICIADA!");
+            toast.success("¡Cuenta creada y sesión iniciada!");
+            navigate("/dashboard");
+            return;
+          } else if (signUpData.user) {
+            toast.info("Cuenta creada. Verifica tu correo.", {
+              description: "Se ha enviado un enlace de confirmación a " + emailToUse
+            });
+            return;
+          }
+        }
+
+        toast.error("Error de inicio de sesión", {
+          description: error.message === "Invalid login credentials"
+            ? "Credenciales incorrectas."
+            : error.message
+        });
+        return;
+      }
+
+      if (data.session) {
+        console.log("✅ ¡SESIÓN INICIADA CORRECTAMENTE!");
+        toast.success("¡Bienvenido a Cobranza POINT!");
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      console.error("❌ Error inesperado:", err);
+      toast.error("Ocurrió un error inesperado", {
+        description: "Por favor intenta nuevamente más tarde."
+      });
+    } finally {
       setLoading(false);
     }
   };
@@ -71,7 +118,8 @@ const Login = () => {
                   onChange={(e) => setUsername(e.target.value)}
                   className="pl-12 h-12 bg-white border-gray-200 focus:border-[#6366F1] focus:ring-0 rounded-lg text-base"
                   required
-                  autoComplete="off"
+                  autoComplete="username"
+                  placeholder="point"
                 />
               </div>
             </div>
@@ -86,6 +134,7 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-12 pr-12 h-12 bg-white border-gray-200 focus:border-[#6366F1] focus:ring-0 rounded-lg text-base"
                   required
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
@@ -105,7 +154,14 @@ const Login = () => {
               className="w-full h-12 text-base font-semibold text-white bg-gradient-to-r from-[#5B42F3] to-[#D91A5C] hover:opacity-90 transition-opacity rounded-lg mt-2"
               disabled={loading}
             >
-              {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Iniciando sesión...
+                </>
+              ) : (
+                "Iniciar Sesión"
+              )}
             </Button>
           </form>
         </CardContent>
