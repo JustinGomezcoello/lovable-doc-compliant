@@ -59,6 +59,9 @@ const DayByDayTab = () => {
     "point_reactivacion_cobro",
     "point_compromiso_pago_llamadas",
     "point_mora_cero",
+    "point_no_se_acepta_compromiso_pago",
+    "point_31_60_guayaquil_plazas_costa",
+    "point_mora_pos6",
   ] as const;
 
   const campaignNames: Record<string, string> = {
@@ -76,6 +79,9 @@ const DayByDayTab = () => {
     point_reactivacion_cobro: "REACTIVACIÓN COBRO",
     point_compromiso_pago_llamadas: "COMPROMISO PAGO LLAMADAS",
     point_mora_cero: "MORA CERO",
+    point_no_se_acepta_compromiso_pago: "NO SE ACEPTA COMPROMISO PAGO",
+    point_31_60_guayaquil_plazas_costa: "31-60 GUAYAQUIL PLAZAS COSTA",
+    point_mora_pos6: "MORA POSITIVA 6",
   };
 
   const COSTO_POR_MENSAJE = 0.014;
