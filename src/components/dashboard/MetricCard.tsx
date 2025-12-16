@@ -6,13 +6,14 @@ interface MetricCardProps {
   title: string;
   value: string | number;
   icon: LucideIcon;
-  description?: string;
+  description?: React.ReactNode;
   trend?: {
     value: number;
     isPositive: boolean;
   };
   variant?: "default" | "primary" | "success" | "warning" | "destructive";
   badgeText?: string;
+  className?: string;
 }
 
 const MetricCard = ({
@@ -22,7 +23,8 @@ const MetricCard = ({
   description,
   trend,
   variant = "primary",
-  badgeText
+  badgeText,
+  className
 }: MetricCardProps) => {
 
   const variantStyles = {
@@ -61,7 +63,7 @@ const MetricCard = ({
   const styles = variantStyles[variant];
 
   return (
-    <Card className="hover:shadow-xl transition-all duration-300 hover:scale-105 border-2 border-blue-200 hover:border-blue-600 hover:ring-2 hover:ring-blue-600 shadow-sm cursor-pointer bg-gradient-to-br from-white to-blue-50">
+    <Card className={cn("hover:shadow-xl transition-all duration-300 hover:scale-105 border-2 border-blue-200 hover:border-blue-600 hover:ring-2 hover:ring-blue-600 shadow-sm cursor-pointer bg-gradient-to-br from-white to-blue-50", className)}>
       <CardContent className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div className={cn("p-3 rounded-xl", styles.iconBg)}>
@@ -84,9 +86,9 @@ const MetricCard = ({
         </div>
 
         {description && (
-          <p className="text-sm text-muted-foreground mt-2">
+          <div className="text-sm text-muted-foreground mt-2">
             {description}
-          </p>
+          </div>
         )}
 
         {trend && (

@@ -1,5 +1,8 @@
 // Edge function to fetch Chatwoot metrics with date filtering
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+
+declare const Deno: any;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -109,7 +112,7 @@ async function obtenerConversacionesPorEtiqueta(
 
       const data: ChatwootResponse = await response.json()
       const conversations = data.data?.payload || []
-      const meta = data.data?.meta || {}
+      const meta = data.data?.meta || { mine_count: 0, assigned_count: 0, unassigned_count: 0, all_count: 0 }
 
       console.log(`📊 Página ${currentPage} para ${label}: ${conversations.length} conversaciones encontradas`)
       console.log(`📈 Meta información:`, {
@@ -291,7 +294,18 @@ serve(async (req) => {
       'pagado',
       'consulto_datos_transferencia',
       'no_registrado',
-      'compromiso_pago'
+      'compromiso_pago',
+      'numero_equivocado',
+      'documento_enviado',
+      'faltan_datos',
+      'imagen_enviada',
+      'pago_parcial',
+      'quiero_pagar',
+      'reactivacion_cobro',
+      'recordatorio',
+      'recordatorio_compromiso_pago',
+      'recordatorio_diasmora_1',
+      'recordatorio_diasmora_menos_3'
     ]
 
     const metrics: Record<string, number> = {}
@@ -334,6 +348,32 @@ serve(async (req) => {
         console.error(`❌ Error procesando etiqueta ${label}:`, error)
         metrics[label] = 0
       }
+    }
+
+    // Obtener total de conversaciones (sin filtro de etiqueta)
+    try {
+      console.log(`\n📊 ===== OBTENIENDO TOTAL GENERAL =====`)
+      const url = `${CHATWOOT_BASE_URL}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}/conversations?status=all&page=1`
+      const response = await fetch(url, {
+        headers: {
+          'api_access_token': CHATWOOT_API_TOKEN,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        method: 'GET'
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        metrics['total_conversations'] = data.data?.meta?.all_count || 0
+        console.log(`✅ Total conversaciones: ${metrics['total_conversations']}`)
+      } else {
+        console.error('Error obteniendo total general:', await response.text())
+        metrics['total_conversations'] = 0
+      }
+    } catch (error) {
+      console.error('Error obteniendo total general:', error)
+      metrics['total_conversations'] = 0
     }
 
     console.log(`\n🎯 ===== MÉTRICAS FINALES =====`)

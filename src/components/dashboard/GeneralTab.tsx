@@ -26,6 +26,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import LoadingState from "@/components/ui/loading-state";
+import { MessageSquare } from "lucide-react";
 
 const GeneralTab = () => {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(new Date(2025, 8, 1)); // September 1, 2025
@@ -155,6 +156,14 @@ const GeneralTab = () => {
       </div>
     </div>        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <MetricCard
+        title="TOTAL CONVERSACIONES"
+        value={loadingChatwoot ? "..." : (chatwootMetrics?.total_conversations?.toString() || "0")}
+        icon={MessageSquare}
+        description="Total histórico de conversaciones en Chatwoot"
+        variant="default"
+        className="bg-primary/10 border-primary/20"
+      />
+      <MetricCard
         title="Comprobantes Enviados"
         value={chatwootMetrics?.comprobante_enviado?.toString() || "0"}
         icon={FileText}
@@ -244,6 +253,76 @@ const GeneralTab = () => {
         icon={Handshake}
         description="Cliente se ha comprometido a realizar el pago"
         variant="success"
+      />
+      <MetricCard
+        title="Documento Enviado"
+        value={chatwootMetrics?.documento_enviado?.toString() || "0"}
+        icon={FileText}
+        description="Cliente envió un documento (no necesariamente comprobante)"
+        variant="primary"
+      />
+      <MetricCard
+        title="Faltan Datos"
+        value={chatwootMetrics?.faltan_datos?.toString() || "0"}
+        icon={AlertCircle}
+        description="No se reconocen bien los datos del comprobante enviado"
+        variant="warning"
+      />
+      <MetricCard
+        title="Imagen Enviada"
+        value={chatwootMetrics?.imagen_enviada?.toString() || "0"}
+        icon={FileText}
+        description="Cliente envió una imagen"
+        variant="primary"
+      />
+      <MetricCard
+        title="Pago Parcial"
+        value={chatwootMetrics?.pago_parcial?.toString() || "0"}
+        icon={Banknote}
+        description="Todavía tiene monto pendiente por pagar"
+        variant="warning"
+      />
+      <MetricCard
+        title="Quiero Pagar"
+        value={chatwootMetrics?.quiero_pagar?.toString() || "0"}
+        icon={Handshake}
+        description="Cliente quiere hacer gestión de pago"
+        variant="success"
+      />
+      <MetricCard
+        title="Reactivación Cobro"
+        value={chatwootMetrics?.reactivacion_cobro?.toString() || "0"}
+        icon={UserCheck}
+        description="Gestión de reactivación de cobro"
+        variant="default"
+      />
+      <MetricCard
+        title="Recordatorio"
+        value={chatwootMetrics?.recordatorio?.toString() || "0"}
+        icon={CalendarIcon}
+        description="Recordatorio general"
+        variant="default"
+      />
+      <MetricCard
+        title="Recordatorio Compromiso"
+        value={chatwootMetrics?.recordatorio_compromiso_pago?.toString() || "0"}
+        icon={CalendarIcon}
+        description="Recordatorio de compromiso de pago"
+        variant="warning"
+      />
+      <MetricCard
+        title="Mora 1 Día"
+        value={chatwootMetrics?.recordatorio_diasmora_1?.toString() || "0"}
+        icon={AlertCircle}
+        description="Recordatorio de 1 día de mora"
+        variant="destructive"
+      />
+      <MetricCard
+        title="Mora < 3 Días"
+        value={chatwootMetrics?.recordatorio_diasmora_menos_3?.toString() || "0"}
+        icon={AlertCircle}
+        description="Recordatorio de menos de 3 días de mora"
+        variant="destructive"
       />
     </div>
   </div>

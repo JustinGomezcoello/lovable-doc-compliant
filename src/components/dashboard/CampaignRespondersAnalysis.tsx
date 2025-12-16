@@ -20,6 +20,7 @@ interface ResponderData {
   TipoDePago: string | null;
   compromiso_pago_fecha: string | null;
   EstadoEtiqueta: string | null;
+  TipoCartera: number | null;
 }
 
 // Interfaz para análisis y recomendación
@@ -117,7 +118,8 @@ export const CampaignRespondersAnalysis = ({
             TipoDePago,
             compromiso_pago_fecha,
             conversation_id,
-            EstadoEtiqueta
+            EstadoEtiqueta,
+            TipoCartera
           `)
           .in("Cedula", chunk)
           .not("conversation_id", "is", null)
@@ -137,7 +139,7 @@ export const CampaignRespondersAnalysis = ({
         }
 
         if (data && data.length > 0) {
-          allResponders.push(...data);
+          allResponders.push(...(data as any));
           console.log(`   ✅ Chunk ${i / CHUNK_SIZE + 1}: ${data.length} respondedores`);
         }
       }
@@ -549,192 +551,194 @@ export const CampaignRespondersAnalysis = ({
                 </div>
               </div>
 
-              {/* Tabla de respondedores */}
+              {/* Tablas de respondedores por TipoCartera */}
               {analysis.responders.length > 0 && (
-                <div className="mt-4">
+                <div className="mt-4 space-y-6">
                   <h4 className="font-semibold mb-2">Respondedores ({analysis.totalResponders})</h4>
-                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                    <table className="w-full text-sm border-collapse">
-                      <thead className="sticky top-0 bg-gray-100">
-                        <tr className="border-b-2">
-                          <th className="text-left p-2 font-semibold">Cédula</th>
-                          <th className="text-left p-2 font-semibold">Cliente</th>
-                          <th className="text-left p-2 font-semibold">Celular</th>
-                          <th className="text-right p-2 font-semibold">Saldo Vencido</th>
-                          <th className="text-right p-2 font-semibold">Saldo Por Vencer</th>
-                          <th className="text-center p-2 font-semibold">Días Mora</th>
-                          <th className="text-center p-2 font-semibold">Comprobante Enviado</th>
-                          <th className="text-center p-2 font-semibold">Estado Etiqueta</th>
-                          <th className="text-center p-2 font-semibold">Agendó Compromiso en Chat</th>
-                          <th className="text-center p-2 font-semibold">Tipo Pago</th>
-                          <th className="text-right p-2 font-semibold">Saldo Restante</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {analysis.responders.map((responder, idx) => {
-                          // Identificar tipo de campaña
-                          const campaignDiasMora = getCampaignDiasMora(campaignName);
-                          const isNegativeCampaign = campaignDiasMora !== null && campaignDiasMora < 0;
-                          const isPositiveCampaign = campaignDiasMora !== null && campaignDiasMora > 0;
-                          const isCompromisoPago = campaignName.includes("COMPROMISO PAGO");
-                          const isReactivacion = campaignName.includes("REACTIVACIÓN") || campaignName.includes("REACTIVACION");
-                          const isMoraCero = campaignName.includes("MORA CERO");
 
-                          // Determinar deuda relevante según tipo de campaña
-                          let relevantDebt = 0;
+                  {[
+                    { id: 1, title: "Cartera 1", data: analysis.responders.filter(r => r.TipoCartera === 1) },
+                    { id: 2, title: "Cartera 2", data: analysis.responders.filter(r => r.TipoCartera === 2) },
+                    { id: -1, title: "Sin Cartera / Otros", data: analysis.responders.filter(r => r.TipoCartera !== 1 && r.TipoCartera !== 2) },
+                  ].map((group) => (
+                    group.data.length > 0 && (
+                      <div key={group.id} className="border rounded-lg overflow-hidden">
+                        <div className="bg-gray-100 px-4 py-2 font-semibold text-sm border-b flex justify-between items-center">
+                          <span>{group.title}</span>
+                          <span className="bg-white px-2 py-0.5 rounded text-xs border">{group.data.length}</span>
+                        </div>
+                        <div className="overflow-x-auto max-h-60 overflow-y-auto">
+                          <table className="w-full text-sm border-collapse">
+                            <thead className="sticky top-0 bg-gray-50 z-10 shadow-sm">
+                              <tr className="border-b-2">
+                                <th className="text-left p-2 font-semibold">Cédula</th>
+                                <th className="text-left p-2 font-semibold">Cliente</th>
+                                <th className="text-left p-2 font-semibold">Celular</th>
+                                <th className="text-right p-2 font-semibold">Saldo Vencido</th>
+                                <th className="text-right p-2 font-semibold">Saldo Por Vencer</th>
+                                <th className="text-center p-2 font-semibold">Días Mora</th>
+                                <th className="text-center p-2 font-semibold">Comprobante Enviado</th>
+                                <th className="text-center p-2 font-semibold">Estado Etiqueta</th>
+                                <th className="text-center p-2 font-semibold">Agendó Compromiso en Chat</th>
+                                <th className="text-center p-2 font-semibold">Tipo Pago</th>
+                                <th className="text-center p-2 font-semibold">Tipo Cartera</th>
+                                <th className="text-right p-2 font-semibold">Saldo Restante</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.data.map((responder, idx) => {
+                                // Identificar tipo de campaña
+                                const campaignDiasMora = getCampaignDiasMora(campaignName);
+                                const isNegativeCampaign = campaignDiasMora !== null && campaignDiasMora < 0;
+                                const isPositiveCampaign = campaignDiasMora !== null && campaignDiasMora > 0;
+                                const isCompromisoPago = campaignName.includes("COMPROMISO PAGO");
+                                const isReactivacion = campaignName.includes("REACTIVACIÓN") || campaignName.includes("REACTIVACION");
+                                const isMoraCero = campaignName.includes("MORA CERO");
 
-                          // 1. Si envió comprobante (ComprobanteEnviado = SI) → deuda = 0 (En revisión)
-                          if (responder.ComprobanteEnviado?.trim().toLowerCase() === 'si') {
-                            relevantDebt = 0;
-                          }
-                          // 2. Si no ha enviado comprobante, calcular según Tipo de Campaña (Prioridad)
-                          else {
-                            // CAMPAÑAS POSITIVAS (1-5) + REACTIVACIÓN COBRO → Usar SaldoVencido
-                            if (isPositiveCampaign || isReactivacion) {
-                              relevantDebt = responder.SaldoVencido || 0;
-                            }
-                            // CAMPAÑAS NEGATIVAS (-5 a -1) + MORA CERO → Usar SaldoPorVencer
-                            else if (isNegativeCampaign || isMoraCero) {
-                              relevantDebt = responder.SaldoPorVencer || 0;
-                            }
-                            // COMPROMISO DE PAGO → Lógica condicional según Días Mora
-                            else if (isCompromisoPago) {
-                              if (responder.DiasMora !== null && responder.DiasMora <= 0) {
-                                relevantDebt = responder.SaldoPorVencer || 0;
-                              } else {
-                                relevantDebt = responder.SaldoVencido || 0;
-                              }
-                            }
-                            // Fallback: Lógica basada en Días Mora si no coincide campaña
-                            else if (responder.DiasMora !== null && responder.DiasMora !== undefined) {
-                              if (responder.DiasMora <= 0) {
-                                relevantDebt = responder.SaldoPorVencer || 0;
-                              } else {
-                                relevantDebt = responder.SaldoVencido || 0;
-                              }
-                            }
-                          }
+                                // Determinar deuda relevante según tipo de campaña
+                                let relevantDebt = 0;
 
-                          // Verificar comprobante enviado (2 condiciones principales)
-                          // ComprobanteEnviado = Si/SI AND DiceQueYaPago = Si/SI
-                          // LlamarOtraVez puede ser NO si no se pudo contactar después
-                          // Nota: Comparación case-insensitive porque en la BD puede ser "SI" o "Si"
-                          const hasValidReceipt =
-                            responder.ComprobanteEnviado?.trim().toLowerCase() === 'si' &&
-                            responder.DiceQueYaPago?.trim().toLowerCase() === 'si';
+                                // 1. Si envió comprobante (ComprobanteEnviado = SI) → deuda = 0 (En revisión)
+                                if (responder.ComprobanteEnviado?.trim().toLowerCase() === 'si') {
+                                  relevantDebt = 0;
+                                }
+                                // 2. Si no ha enviado comprobante, calcular según Tipo de Campaña (Prioridad)
+                                else {
+                                  // CAMPAÑAS POSITIVAS (1-5) + REACTIVACIÓN COBRO → Usar SaldoVencido
+                                  if (isPositiveCampaign || isReactivacion) {
+                                    relevantDebt = responder.SaldoVencido || 0;
+                                  }
+                                  // CAMPAÑAS NEGATIVAS (-5 a -1) + MORA CERO → Usar SaldoPorVencer
+                                  else if (isNegativeCampaign || isMoraCero) {
+                                    relevantDebt = responder.SaldoPorVencer || 0;
+                                  }
+                                  // COMPROMISO DE PAGO → Lógica condicional según Días Mora
+                                  else if (isCompromisoPago) {
+                                    if (responder.DiasMora !== null && responder.DiasMora <= 0) {
+                                      relevantDebt = responder.SaldoPorVencer || 0;
+                                    } else {
+                                      relevantDebt = responder.SaldoVencido || 0;
+                                    }
+                                  }
+                                  // Fallback: Lógica basada en Días Mora si no coincide campaña
+                                  else if (responder.DiasMora !== null && responder.DiasMora !== undefined) {
+                                    if (responder.DiasMora <= 0) {
+                                      relevantDebt = responder.SaldoPorVencer || 0;
+                                    } else {
+                                      relevantDebt = responder.SaldoVencido || 0;
+                                    }
+                                  }
+                                }
 
-                          // Log detallado para cada registro (solo primeros 5)
-                          if (idx < 5) {
-                            console.log(`📋 Registro #${idx + 1} - ${responder.Cliente}:`, {
-                              Cedula: responder.Cedula,
-                              ComprobanteEnviado: `"${responder.ComprobanteEnviado}"`,
-                              DiceQueYaPago: `"${responder.DiceQueYaPago}"`,
-                              LlamarOtraVez: `"${responder.LlamarOtraVez}"`,
-                              hasValidReceipt: hasValidReceipt ? '✅ SI' : '❌ NO',
-                              razon: !hasValidReceipt ?
-                                (responder.ComprobanteEnviado?.trim() !== 'Si' ?
-                                  'ComprobanteEnviado no es "Si"' :
-                                  'DiceQueYaPago no es "Si"') :
-                                'Cumple las 2 condiciones'
-                            });
-                          }
+                                // Verificar comprobante enviado (2 condiciones principales)
+                                const hasValidReceipt =
+                                  responder.ComprobanteEnviado?.trim().toLowerCase() === 'si' &&
+                                  responder.DiceQueYaPago?.trim().toLowerCase() === 'si';
 
-                          return (
-                            <tr key={idx} className="border-b hover:bg-gray-50">
-                              <td className="p-2">{responder.Cedula}</td>
-                              <td className="p-2">{responder.Cliente || "-"}</td>
-                              <td className="p-2">{responder.Celular || "-"}</td>
-                              <td className="p-2 text-right font-semibold text-orange-600">
-                                ${responder.SaldoVencido?.toFixed(2) || "0.00"}
-                              </td>
-                              <td className="p-2 text-right font-semibold text-blue-600">
-                                ${responder.SaldoPorVencer?.toFixed(2) || "0.00"}
-                              </td>
-                              <td className="p-2 text-center">
-                                <span className={cn(
-                                  "px-2 py-1 rounded text-xs font-semibold",
-                                  responder.DiasMora && responder.DiasMora > 5
-                                    ? "bg-red-100 text-red-800"
-                                    : responder.DiasMora && responder.DiasMora > 0
-                                      ? "bg-orange-100 text-orange-800"
-                                      : "bg-blue-100 text-blue-800"
-                                )}>
-                                  {responder.DiasMora || 0}
-                                </span>
-                              </td>
-                              <td className="p-2 text-center">
-                                {hasValidReceipt ? (
-                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800" title="ComprobanteEnviado=Si, DiceQueYaPago=Si">
-                                    SI
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
-                                    NO
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-2 text-center">
-                                {responder.EstadoEtiqueta ? (
-                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-800">
-                                    {responder.EstadoEtiqueta}
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-50 text-gray-500 italic">
-                                    chat conversacional
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-2 text-center">
-                                {responder.compromiso_pago_fecha ? (
-                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800">
-                                    SI
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-600">
-                                    NO
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-2 text-center">
-                                {responder.TipoDePago === 'Total' ? (
-                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
-                                    Total
-                                  </span>
-                                ) : responder.TipoDePago === 'Parcial' ? (
-                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">
-                                    Parcial
-                                  </span>
-                                ) : relevantDebt === 0 ? (
-                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-teal-100 text-teal-800">
-                                    Sin Deuda
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-600">
-                                    Pendiente
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-2 text-right font-semibold">
-                                {responder.TipoDePago === 'Total' ? (
-                                  <span className="text-green-600 font-bold">$0.00</span>
-                                ) : responder.TipoDePago === 'Parcial' ? (
-                                  <span className="text-yellow-600 font-bold">
-                                    ${responder.RestanteSaldoVencido?.toFixed(2) || "0.00"}
-                                  </span>
-                                ) : relevantDebt === 0 ? (
-                                  <span className="text-teal-600">$0.00</span>
-                                ) : (
-                                  <span className="text-red-600 font-bold">
-                                    ${relevantDebt.toFixed(2)}
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                                return (
+                                  <tr key={idx} className="border-b hover:bg-gray-50">
+                                    <td className="p-2">{responder.Cedula}</td>
+                                    <td className="p-2">{responder.Cliente || "-"}</td>
+                                    <td className="p-2">{responder.Celular || "-"}</td>
+                                    <td className="p-2 text-right font-semibold text-orange-600">
+                                      ${responder.SaldoVencido?.toFixed(2) || "0.00"}
+                                    </td>
+                                    <td className="p-2 text-right font-semibold text-blue-600">
+                                      ${responder.SaldoPorVencer?.toFixed(2) || "0.00"}
+                                    </td>
+                                    <td className="p-2 text-center">
+                                      <span className={cn(
+                                        "px-2 py-1 rounded text-xs font-semibold",
+                                        responder.DiasMora && responder.DiasMora > 5
+                                          ? "bg-red-100 text-red-800"
+                                          : responder.DiasMora && responder.DiasMora > 0
+                                            ? "bg-orange-100 text-orange-800"
+                                            : "bg-blue-100 text-blue-800"
+                                      )}>
+                                        {responder.DiasMora || 0}
+                                      </span>
+                                    </td>
+                                    <td className="p-2 text-center">
+                                      {hasValidReceipt ? (
+                                        <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800" title="ComprobanteEnviado=Si, DiceQueYaPago=Si">
+                                          SI
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
+                                          NO
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="p-2 text-center">
+                                      {responder.EstadoEtiqueta ? (
+                                        <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-800">
+                                          {responder.EstadoEtiqueta}
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-50 text-gray-500 italic">
+                                          chat conversacional
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="p-2 text-center">
+                                      {responder.compromiso_pago_fecha ? (
+                                        <span className="px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800">
+                                          SI
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-600">
+                                          NO
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="p-2 text-center">
+                                      {responder.TipoDePago === 'Total' ? (
+                                        <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                          Total
+                                        </span>
+                                      ) : responder.TipoDePago === 'Parcial' ? (
+                                        <span className="px-2 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                          Parcial
+                                        </span>
+                                      ) : relevantDebt === 0 ? (
+                                        <span className="px-2 py-1 rounded text-xs font-semibold bg-teal-100 text-teal-800">
+                                          Sin Deuda
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-600">
+                                          Pendiente
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="p-2 text-center">
+                                      <span className="px-2 py-1 rounded text-xs font-semibold bg-gray-100 text-gray-800">
+                                        {responder.TipoCartera !== null && responder.TipoCartera !== undefined ? responder.TipoCartera : "-"}
+                                      </span>
+                                    </td>
+                                    <td className="p-2 text-right font-semibold">
+                                      {responder.TipoDePago === 'Total' ? (
+                                        <span className="text-green-600 font-bold">$0.00</span>
+                                      ) : responder.TipoDePago === 'Parcial' ? (
+                                        <span className="text-yellow-600 font-bold">
+                                          ${responder.RestanteSaldoVencido?.toFixed(2) || "0.00"}
+                                        </span>
+                                      ) : relevantDebt === 0 ? (
+                                        <span className="text-teal-600">$0.00</span>
+                                      ) : (
+                                        <span className="text-red-600 font-bold">
+                                          ${relevantDebt.toFixed(2)}
+                                        </span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )
+                  ))}
                 </div>
               )}
             </>

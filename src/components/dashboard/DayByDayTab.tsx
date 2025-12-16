@@ -131,14 +131,14 @@ const DayByDayTab = () => {
    */
   const clasificarCedulasPorRespuesta = async (
     cedulas: string[]
-  ): Promise<Map<string, boolean>> => {
-    const responseMap = new Map<string, boolean>();
+  ): Promise<Map<string, { responded: boolean; tipoCartera: number | null }>> => {
+    const responseMap = new Map<string, { responded: boolean; tipoCartera: number | null }>();
 
     if (!cedulas.length) return responseMap;
 
-    // Inicialmente, todas las cédulas se marcan como NO RESPONDIÓ (false)
+    // Inicialmente, todas las cédulas se marcan como NO RESPONDIÓ (false) y sin tipoCartera
     cedulas.forEach((cedula) => {
-      responseMap.set(cedula, false);
+      responseMap.set(cedula, { responded: false, tipoCartera: null });
     });
 
     // Construir mapa numérico → strings (para manejar variaciones de formato)
@@ -156,7 +156,7 @@ const DayByDayTab = () => {
       try {
         const { data: responseData, error } = await supabase
           .from("POINT_Competencia")
-          .select("Cedula, conversation_id")
+          .select("Cedula, conversation_id, TipoCartera")
           .in("Cedula", chunk);
 
         if (error) {
@@ -165,16 +165,28 @@ const DayByDayTab = () => {
         }
 
         if (responseData && responseData.length) {
+          // DEBUG: Log first row to check structure
+          if (i === 0) console.log("🔍 Sample Row from POINT_Competencia:", responseData[0]);
+
           responseData.forEach((row: any) => {
             const convId = row.conversation_id;
             const cedulaNumber = Number(row.Cedula);
+
+            // Try accessing with different casings just in case
+            const rawTipo = row.TipoCartera ?? row.tipocartera ?? row.tipoCartera;
+            const tipoCartera = rawTipo ? Number(rawTipo) : null;
+
+            // DEBUG: Log if tipoCartera is missing for a responder
+            if ((convId !== null && convId !== 0) && !tipoCartera) {
+              // console.warn(`⚠️ Responder without TipoCartera: ${cedulaNumber}`, row);
+            }
 
             // ✅ APLICAR REGLA ÚNICA: conversation_id NOT NULL AND <> 0
             if (convId !== null && convId !== 0) {
               const keys = numericToKeys.get(cedulaNumber);
               if (keys && keys.length) {
                 keys.forEach((key) => {
-                  responseMap.set(key, true); // Marcar como RESPONDIÓ
+                  responseMap.set(key, { responded: true, tipoCartera }); // Marcar como RESPONDIÓ y guardar tipoCartera
                 });
               }
             }
@@ -301,11 +313,20 @@ const DayByDayTab = () => {
 
       let respondieron = 0;
       let noRespondieron = 0;
+      let respondieronCartera1 = 0;
+      let respondieronCartera2 = 0;
+      let respondieronSinCartera = 0;
 
       uniqueCedulas.forEach((ced) => {
-        const didRespond = responseMap.get(ced);
-        if (didRespond) respondieron++;
-        else noRespondieron++;
+        const result = responseMap.get(ced);
+        if (result?.responded) {
+          respondieron++;
+          if (result.tipoCartera === 1) respondieronCartera1++;
+          else if (result.tipoCartera === 2) respondieronCartera2++;
+          else respondieronSinCartera++;
+        } else {
+          noRespondieron++;
+        }
       });
 
       const responseRate =
@@ -317,7 +338,10 @@ const DayByDayTab = () => {
         totalCedulasUnicas: uniqueCedulas.length,
         respondieron,
         noRespondieron,
-        tasaRespuesta: `${responseRate}%`
+        tasaRespuesta: `${responseRate}%`,
+        cartera1: respondieronCartera1,
+        cartera2: respondieronCartera2,
+        sinCartera: respondieronSinCartera
       });
 
       // ═══════════════════════════════════════════════════════════════════════
@@ -356,6 +380,9 @@ const DayByDayTab = () => {
         notResponded: noRespondieron,
         responseRate,
         totalCedulasUnicas: uniqueCedulas.length,
+        respondedCartera1: respondieronCartera1,
+        respondedCartera2: respondieronCartera2,
+        respondedSinCartera: respondieronSinCartera,
       };
     },
     enabled: !!startDate && !!endDate,
@@ -497,17 +524,29 @@ const DayByDayTab = () => {
 
       let overallRespondedDia = 0;
       let overallNotRespondedDia = 0;
+      let overallRespondedCartera1 = 0;
+      let overallRespondedCartera2 = 0;
+      let overallRespondedSinCartera = 0;
 
       uniqueCedulasDia.forEach((cedula) => {
-        const didRespond = responseMap.get(cedula);
-        if (didRespond) overallRespondedDia++;
-        else overallNotRespondedDia++;
+        const result = responseMap.get(cedula);
+        if (result?.responded) {
+          overallRespondedDia++;
+          if (result.tipoCartera === 1) overallRespondedCartera1++;
+          else if (result.tipoCartera === 2) overallRespondedCartera2++;
+          else overallRespondedSinCartera++;
+        } else {
+          overallNotRespondedDia++;
+        }
       });
 
       console.log("✅ Métricas globales del día:", {
         totalCedulasUnicasDia: uniqueCedulasDia.length,
         respondieronDia: overallRespondedDia,
-        noRespondieronDia: overallNotRespondedDia
+        noRespondieronDia: overallNotRespondedDia,
+        cartera1: overallRespondedCartera1,
+        cartera2: overallRespondedCartera2,
+        sinCartera: overallRespondedSinCartera
       });
 
       // ═══════════════════════════════════════════════════════════════════════
@@ -519,13 +558,26 @@ const DayByDayTab = () => {
       campaigns.forEach((campaign: any) => {
         let campaignResponded = 0;
         let campaignNotResponded = 0;
+        let campaignRespondedCartera1 = 0;
+        let campaignRespondedCartera2 = 0;
+        let campaignRespondedSinCartera = 0;
 
         campaign.cedulas.forEach((cedula: string) => {
-          const didRespond = responseMap.get(cedula);
-          if (didRespond) campaignResponded++;
-          else campaignNotResponded++;
-        }); campaign.responded = campaignResponded;
+          const result = responseMap.get(cedula);
+          if (result?.responded) {
+            campaignResponded++;
+            if (result.tipoCartera === 1) campaignRespondedCartera1++;
+            else if (result.tipoCartera === 2) campaignRespondedCartera2++;
+            else campaignRespondedSinCartera++;
+          } else {
+            campaignNotResponded++;
+          }
+        });
+        campaign.responded = campaignResponded;
         campaign.notResponded = campaignNotResponded;
+        campaign.respondedCartera1 = campaignRespondedCartera1;
+        campaign.respondedCartera2 = campaignRespondedCartera2;
+        campaign.respondedSinCartera = campaignRespondedSinCartera;
 
         // MANTENER las cédulas para el análisis detallado de respondedores
         // NO eliminar campaign.cedulas - se usarán en CampaignRespondersAnalysis
@@ -563,6 +615,9 @@ const DayByDayTab = () => {
         responded: overallRespondedDia,
         notResponded: overallNotRespondedDia,
         totalCedulasUnicasDia: uniqueCedulasDia.length,
+        respondedCartera1: overallRespondedCartera1,
+        respondedCartera2: overallRespondedCartera2,
+        respondedSinCartera: overallRespondedSinCartera,
       };
     },
     enabled: !!campaignFilterDate,
@@ -868,7 +923,15 @@ const DayByDayTab = () => {
                 title="Respondieron"
                 value={dayMetrics?.responded?.toLocaleString() || "0"}
                 icon={UserCheck}
-                description={`${dayMetrics?.responseRate || "0"}% de las personas contactadas en el rango`}
+                description={
+                  <div className="flex flex-col gap-1">
+                    <span>{dayMetrics?.responseRate || "0"}% de las personas contactadas</span>
+                    <span className="text-xs font-normal opacity-90">
+                      C1: {dayMetrics?.respondedCartera1 || 0} | C2: {dayMetrics?.respondedCartera2 || 0}
+                      {dayMetrics?.respondedSinCartera ? ` | Sin C: ${dayMetrics.respondedSinCartera}` : ""}
+                    </span>
+                  </div>
+                }
                 variant="success"
               />
             </div>
@@ -955,6 +1018,10 @@ const DayByDayTab = () => {
                   <p className="text-2xl font-bold text-green-600">
                     {campaignDetails?.responded?.toLocaleString() || "0"}
                   </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    C1: {campaignDetails?.respondedCartera1 || 0} | C2: {campaignDetails?.respondedCartera2 || 0}
+                    {campaignDetails?.respondedSinCartera ? ` | Sin C: ${campaignDetails.respondedSinCartera}` : ""}
+                  </p>
                 </div>
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground mb-1">No Respondieron</p>
@@ -1007,6 +1074,10 @@ const DayByDayTab = () => {
                           <p className="text-muted-foreground text-xs">Respondieron</p>
                           <p className="font-semibold text-green-600">
                             {campaign.responded}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            C1: {campaign.respondedCartera1 || 0} | C2: {campaign.respondedCartera2 || 0}
+                            {campaign.respondedSinCartera ? ` | Sin C: ${campaign.respondedSinCartera}` : ""}
                           </p>
                         </div>
                         <div className="text-center p-2 bg-orange-50 rounded">
